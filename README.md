@@ -5,7 +5,7 @@ Mijia Desktop（米家桌面控制中心）是面向 Windows 11 的开源米家�
 项目当前按《Mijia Desktop 项目计划书 V1.0》分阶段开发。Phase 0 提供可运行的
 PySide6 工程骨架；Phase 1 提供经 `MijiaAdapter` 隔离的命令行访问链路；Phase 2
 建立统一设备模型；Phase 3–8 已完成设备总览、通用/专用控制、状态管理、收藏与托盘，
-以及完整设置页面。目前正在进行 Phase 8 本机验收，验收后进入 Phase 9 打包。
+以及完整设置页面。目前正在进行 Phase 9 Windows 打包与本机验收。
 
 ## 环境要求
 
@@ -125,6 +125,20 @@ Windows 系统托盘提供打开主界面、刷新设备、退出，以及具有
 高级模式会在设备详情中显示独立的 `MIoT Debug` 页签，其中包含 DID、Model、
 SIID/PIID/AIID、Property、Action 和原始 metadata；关闭高级模式时这些开发字段不会
 出现在普通设备信息页。
+
+## Phase 9 Packaging
+
+建议使用标准 Python 3.12 创建独立的打包环境，避免开发工具注入的 DLL 搜索路径
+影响 Qt 依赖解析：
+
+```powershell
+py -3.12 -m venv .venv-packaging
+.venv-packaging\Scripts\python.exe -m pip install -e ".[packaging]"
+powershell -ExecutionPolicy Bypass -File scripts\build.ps1
+```
+
+构建产物位于 `dist\MijiaDesktop.exe`。该程序为无控制台窗口的单文件 EXE，包含
+PySide6、mijiaAPI、Windows DPAPI 依赖、应用样式资源和版本信息。
 
 ## License
 

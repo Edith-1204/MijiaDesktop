@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import sys
 
+from app.core.runtime import ensure_standard_streams
+
+ensure_standard_streams()
+
 from PySide6.QtWidgets import QApplication
 
 from app.application import create_application

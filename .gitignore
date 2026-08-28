@@ -9,11 +9,13 @@ htmlcov/
 
 # Virtual environments and packaging
 .venv/
+.venv-packaging/
 venv/
 build/
 dist/
 *.egg-info/
 *.spec
+!MijiaDesktop.spec
 
 # Editors and operating systems
 .idea/

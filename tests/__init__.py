@@ -1,0 +1,2 @@
+"""Mijia Desktop test suite."""
+

@@ -14,7 +14,14 @@ class GenericDeviceControl(QWidget):
     property_change_requested = Signal(str, object)
     action_requested = Signal(str)
 
-    def __init__(self, device: BaseDevice, parent=None) -> None:
+    def __init__(
+        self,
+        device: BaseDevice,
+        parent=None,
+        *,
+        include_properties: bool = True,
+        include_actions: bool = True,
+    ) -> None:
         super().__init__(parent)
         self.device = device
         self.property_widgets: dict[str, BasePropertyWidget] = {}
@@ -23,27 +30,29 @@ class GenericDeviceControl(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
 
-        property_title = QLabel("全部属性")
-        property_title.setObjectName("sectionTitle")
-        layout.addWidget(property_title)
-        for capability in device.properties.values():
-            widget = create_property_widget(capability)
-            widget.change_requested.connect(self.property_change_requested)
-            self.property_widgets[capability.name] = widget
-            layout.addWidget(widget)
-        if not device.properties:
-            layout.addWidget(self._empty_label("该设备没有可用的 MIoT Property"))
+        if include_properties:
+            property_title = QLabel("全部属性")
+            property_title.setObjectName("sectionTitle")
+            layout.addWidget(property_title)
+            for capability in device.properties.values():
+                widget = create_property_widget(capability)
+                widget.change_requested.connect(self.property_change_requested)
+                self.property_widgets[capability.name] = widget
+                layout.addWidget(widget)
+            if not device.properties:
+                layout.addWidget(self._empty_label("该设备没有可用的 MIoT Property"))
 
-        action_title = QLabel("Actions")
-        action_title.setObjectName("sectionTitle")
-        layout.addWidget(action_title)
-        for action in device.actions.values():
-            widget = ActionWidget(action)
-            widget.action_requested.connect(self.action_requested)
-            self.action_widgets[action.name] = widget
-            layout.addWidget(widget)
-        if not device.actions:
-            layout.addWidget(self._empty_label("该设备没有可用的 MIoT Action"))
+        if include_actions:
+            action_title = QLabel("Actions")
+            action_title.setObjectName("sectionTitle")
+            layout.addWidget(action_title)
+            for action in device.actions.values():
+                widget = ActionWidget(action)
+                widget.action_requested.connect(self.action_requested)
+                self.action_widgets[action.name] = widget
+                layout.addWidget(widget)
+            if not device.actions:
+                layout.addWidget(self._empty_label("该设备没有可用的 MIoT Action"))
         layout.addStretch(1)
 
     def begin_property_update(self, name: str) -> None:
@@ -66,4 +75,3 @@ class GenericDeviceControl(QWidget):
         label = QLabel(text)
         label.setObjectName("emptyInline")
         return label
-

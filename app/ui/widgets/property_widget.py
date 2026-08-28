@@ -59,7 +59,9 @@ class BasePropertyWidget(QFrame):
 
     def finish(self, success: bool, value: Any = None) -> None:
         if success:
-            self._confirmed_value = self._editor_value() if value is None else value
+            if value is not None:
+                self._set_editor_value(value)
+            self._confirmed_value = self._editor_value()
             self.capability.value = self._confirmed_value
         else:
             self._set_editor_value(self._confirmed_value)

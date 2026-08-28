@@ -149,7 +149,7 @@ class MainWindow(QMainWindow):
         self.device_detail_page.begin_property_update(name)
 
         def complete(_result: Any) -> None:
-            self.device_detail_page.finish_property_update(name, True)
+            self.device_detail_page.finish_property_update(name, True, value=value)
             card = self.devices_page.cards.get(did)
             if card is not None:
                 card.update_device(card.device)

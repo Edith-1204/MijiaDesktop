@@ -30,6 +30,8 @@ QTabWidget::pane { border: none; background: transparent; }
 QTabBar::tab { background: #e8edf2; border: none; border-radius: 7px; padding: 9px 16px; margin-right: 6px; }
 QTabBar::tab:selected { background: #2f7edb; color: #ffffff; }
 QLabel#sectionTitle { color: #171a1e; font-size: 17px; font-weight: 700; padding-top: 8px; }
+QLabel#controlTitle { color: #171a1e; font-size: 20px; font-weight: 700; padding-top: 8px; }
+QLabel#controlDescription { color: #6f7780; padding-bottom: 6px; }
 QFrame#propertyRow, QFrame#actionRow { background: #ffffff; border: 1px solid #e0e4e8; border-radius: 9px; }
 QFrame#propertyRow[pending="true"] { background: #f5f7fa; }
 QLabel#propertyName { color: #24282d; font-weight: 600; }

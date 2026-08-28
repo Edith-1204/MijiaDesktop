@@ -84,6 +84,15 @@ Action 按钮，因此未知设备无需专用界面也能展示和控制大部�
 属性写入和 Action 执行统一经 `DeviceManager` 调度到后台线程；失败时控件会恢复到
 上一次确认的值。需要参数的 Action 当前只展示为禁用状态，避免无参数误调用。
 
+## Phase 5 Specialized Device UI
+
+灯、智能插座、风扇和空调会根据统一设备类型显示专用的“常用控制”页签，控件仍然
+完全由 Capability 决定，不依赖具体设备型号；设备不支持的能力会自动隐藏。详情页
+同时保留“全部属性”“Actions”和“设备信息”，确保专用界面不会降低设备兼容性。
+
+四类专用控件及通用控件发出的操作都统一进入 `DeviceManager`，并由后台 `Worker`
+执行。UI 模块不直接访问 mijiaAPI。
+
 ## License
 
 GPL-3.0-or-later。详见 [LICENSE](LICENSE)。

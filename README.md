@@ -50,6 +50,18 @@ python scripts/mijia_poc.py action --did DEVICE_DID --siid 2 --aiid 1 --yes
 所有写入和 Action 命令都要求显式提供 `--yes`。UI 和脚本不得直接调用 mijiaAPI，
 设备访问统一经过 `MijiaAdapter`。
 
+## Phase 2 Device Model
+
+`DeviceManager` 将 mijiaAPI 字典转换为统一的 `BaseDevice`，并根据 MIoT 规格生成
+`DeviceCapability` 与 `DeviceAction`。设备类型采用 Capability 与设备族线索综合判断，
+无法获取规格或无法识别的设备仍会以 `OTHER` 模型保留。
+
+只读验证真实设备模型转换：
+
+```powershell
+python scripts/device_model_poc.py
+```
+
 ## License
 
 GPL-3.0-or-later。详见 [LICENSE](LICENSE)。

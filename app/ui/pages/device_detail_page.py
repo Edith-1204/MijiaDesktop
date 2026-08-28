@@ -30,6 +30,7 @@ class DeviceDetailPage(QWidget):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self.setObjectName("deviceDetailPage")
         self.device: BaseDevice | None = None
         self.generic_control: GenericDeviceControl | None = None
         self.action_control: GenericDeviceControl | None = None
@@ -56,18 +57,25 @@ class DeviceDetailPage(QWidget):
         self.tabs = QTabWidget()
         self.tabs.setObjectName("detailTabs")
         self.common_scroll = QScrollArea()
+        self.common_scroll.setObjectName("detailScroll")
+        self.common_scroll.viewport().setObjectName("detailViewport")
         self.common_scroll.setWidgetResizable(True)
         self.common_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.tabs.addTab(self.common_scroll, "常用控制")
         self.control_scroll = QScrollArea()
+        self.control_scroll.setObjectName("detailScroll")
+        self.control_scroll.viewport().setObjectName("detailViewport")
         self.control_scroll.setWidgetResizable(True)
         self.control_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.tabs.addTab(self.control_scroll, "全部属性")
         self.action_scroll = QScrollArea()
+        self.action_scroll.setObjectName("detailScroll")
+        self.action_scroll.viewport().setObjectName("detailViewport")
         self.action_scroll.setWidgetResizable(True)
         self.action_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.tabs.addTab(self.action_scroll, "Actions")
         self.info_widget = QWidget()
+        self.info_widget.setObjectName("deviceInfo")
         self.info_form = QFormLayout(self.info_widget)
         self.tabs.addTab(self.info_widget, "设备信息")
         self.debug_output = QPlainTextEdit()
@@ -212,6 +220,7 @@ class DeviceDetailPage(QWidget):
     @staticmethod
     def _replace_scroll_widget(scroll: QScrollArea, widget: QWidget) -> None:
         DeviceDetailPage._clear_scroll_widget(scroll)
+        widget.setObjectName("detailContent")
         scroll.setWidget(widget)
 
     @staticmethod

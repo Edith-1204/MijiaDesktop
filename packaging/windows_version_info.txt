@@ -18,7 +18,7 @@ VSVersionInfo(
          StringStruct(u'FileVersion', u'0.1.0-alpha'),
          StringStruct(u'InternalName', u'MijiaDesktop'),
          StringStruct(u'LegalCopyright', u'GPL-3.0-or-later'),
-         StringStruct(u'OriginalFilename', u'MijiaDesktop.exe'),
+         StringStruct(u'OriginalFilename', u'MijiaDesktop-0.1.0-alpha.exe'),
          StringStruct(u'ProductName', u'Mijia Desktop'),
          StringStruct(u'ProductVersion', u'0.1.0-alpha')])
     ]),

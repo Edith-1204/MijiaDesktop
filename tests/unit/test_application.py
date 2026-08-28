@@ -35,6 +35,24 @@ def test_combo_popup_text_is_readable_in_both_themes():
     assert "background: #25292e; color: #f1f3f4" in dark
 
 
+def test_device_detail_background_is_defined_in_both_themes():
+    light = load_stylesheet("light")
+    dark = load_stylesheet("dark")
+
+    for selector in (
+        "QWidget#deviceDetailPage",
+        "QTabWidget#detailTabs",
+        "QScrollArea#detailScroll",
+        "QWidget#detailViewport",
+        "QWidget#detailContent",
+        "QWidget#deviceInfo",
+    ):
+        assert selector in light
+        assert selector in dark
+    assert "QTabWidget::pane { border: none; background: #f4f6f8; }" in light
+    assert "QTabWidget::pane { background: #17191c; }" in dark
+
+
 def test_main_window_can_be_created(qapp):
     window = MainWindow()
 

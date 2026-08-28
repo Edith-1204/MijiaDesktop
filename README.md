@@ -137,8 +137,8 @@ py -3.12 -m venv .venv-packaging
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 ```
 
-构建产物位于 `dist\MijiaDesktop.exe`。该程序为无控制台窗口的单文件 EXE，包含
-PySide6、mijiaAPI、Windows DPAPI 依赖、应用样式资源和版本信息。
+构建产物位于 `dist\MijiaDesktop-0.1.0-alpha.exe`。该程序为无控制台窗口的单文件
+EXE，包含 PySide6、mijiaAPI、Windows DPAPI 依赖、应用样式资源和版本信息。
 
 ## License
 

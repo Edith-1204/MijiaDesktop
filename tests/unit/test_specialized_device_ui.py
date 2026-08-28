@@ -124,6 +124,20 @@ def test_detail_page_separates_common_properties_actions_and_info(qtbot):
     assert set(page.action_control.action_widgets) == {"toggle"}
 
 
+def test_detail_page_names_all_theme_background_surfaces(qtbot):
+    page = DeviceDetailPage()
+    qtbot.addWidget(page)
+    page.set_device(device(DeviceType.LIGHT, ("on", "brightness")))
+
+    assert page.objectName() == "deviceDetailPage"
+    assert page.tabs.objectName() == "detailTabs"
+    assert page.info_widget.objectName() == "deviceInfo"
+    for scroll in (page.common_scroll, page.control_scroll, page.action_scroll):
+        assert scroll.objectName() == "detailScroll"
+        assert scroll.viewport().objectName() == "detailViewport"
+        assert scroll.widget().objectName() == "detailContent"
+
+
 def test_detail_page_keeps_common_and_full_property_values_in_sync(qtbot):
     page = DeviceDetailPage()
     qtbot.addWidget(page)

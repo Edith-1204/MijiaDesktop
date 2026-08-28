@@ -1,6 +1,7 @@
 from app.models.capability import DeviceCapability
 from app.models.device import BaseDevice, DeviceType
 from app.ui.main_window import MainWindow
+from app.ui.pages.favorites_page import FavoritesPage
 from app.ui.pages.devices_page import DevicesPage
 from app.ui.widgets.device_card import DeviceCard
 
@@ -39,6 +40,17 @@ def test_device_card_shows_state_and_emits_quick_switch(qtbot):
     assert requests == [("light-1", True)]
 
 
+def test_device_card_emits_favorite_change(qtbot):
+    card = DeviceCard(make_device())
+    qtbot.addWidget(card)
+    requests = []
+    card.favorite_requested.connect(
+        lambda did, favorite: requests.append((did, favorite))
+    )
+    card.favorite_button.click()
+    assert requests == [("light-1", True)]
+
+
 def test_devices_page_filters_name_and_model(qtbot):
     page = DevicesPage()
     qtbot.addWidget(page)
@@ -46,6 +58,21 @@ def test_devices_page_filters_name_and_model(qtbot):
     page.search_input.setText("书房")
     assert not page.cards["light-1"].isHidden()
     assert page.cards["light-2"].isHidden()
+
+
+def test_devices_page_reuses_parented_cards_during_favorite_updates(qtbot):
+    page = DevicesPage()
+    qtbot.addWidget(page)
+    device = make_device()
+    page.set_devices((device,))
+    original = page.cards[device.did]
+
+    device.favorite = True
+    page.set_devices((device,))
+
+    assert page.cards[device.did] is original
+    assert original.parentWidget() is page.scroll_content
+    assert original.favorite_button.isChecked()
 
 
 def test_main_window_contains_devices_navigation(qtbot):
@@ -86,6 +113,11 @@ class FakeManager:
     def run_action(self, did, name, parameters=None):
         self.calls.append(("run_action", did, name, parameters))
         return {"code": 0}
+
+    def set_favorite(self, did, favorite):
+        self.calls.append(("set_favorite", did, favorite))
+        self.device.favorite = favorite
+        return self.device
 
 
 def test_main_window_sync_and_switch_use_manager_in_background(qtbot):
@@ -152,3 +184,35 @@ def test_main_window_manual_refresh_uses_state_manager_and_timer(qtbot):
     qtbot.waitUntil(lambda: len(manager.calls) == 2)
     assert manager.calls[-1] == ("read_properties_batch", None, {"on"})
     assert window.devices_page.status_label.text().startswith("状态已刷新")
+
+
+def test_favorites_page_filters_devices_and_main_window_updates_it(qtbot):
+    page = FavoritesPage()
+    qtbot.addWidget(page)
+    favorite = make_device("light-1", "收藏灯")
+    favorite.favorite = True
+    page.set_devices((favorite, make_device("light-2", "普通灯")))
+    assert set(page.cards) == {"light-1"}
+
+    manager = FakeManager()
+    window = MainWindow(manager, auto_refresh=True)
+    qtbot.addWidget(window)
+    qtbot.waitUntil(lambda: "light-1" in window.devices_page.cards)
+    window.change_favorite("light-1", True)
+    assert set(window.favorites_page.cards) == {"light-1"}
+    assert manager.calls[-1] == ("set_favorite", "light-1", True)
+
+
+def test_close_hides_window_when_tray_is_available(qtbot):
+    window = MainWindow(auto_refresh=False, enable_tray=True)
+    qtbot.addWidget(window)
+    window.tray_service.available = True
+    messages = []
+    window.tray_service.show_hidden_message = lambda: messages.append(True)
+    window.show()
+
+    window.close()
+
+    assert not window.isVisible()
+    assert messages == [True]
+    window._allow_exit = True

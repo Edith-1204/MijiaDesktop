@@ -36,3 +36,6 @@ class ActionError(MijiaDesktopError):
 class UnsupportedDeviceError(MijiaDesktopError):
     """The requested capability is not supported by the device."""
 
+
+class StorageError(MijiaDesktopError):
+    """Local settings or favorites could not be persisted."""

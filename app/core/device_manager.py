@@ -20,6 +20,8 @@ from app.mijia.parser import (
 )
 from app.models.capability import DeviceCapability
 from app.models.device import BaseDevice
+from app.storage.repository import FavoritesRepository
+from app.storage.spec_cache import DeviceSpecCache
 from app.utils.logger import get_logger
 
 
@@ -33,11 +35,21 @@ class DeviceManager:
         self,
         adapter: MijiaAdapter,
         classifier: DeviceClassifier | None = None,
+        favorites_repository: FavoritesRepository | None = None,
+        spec_cache: DeviceSpecCache | None = None,
     ) -> None:
         self._adapter = adapter
         self._classifier = classifier or DeviceClassifier()
+        self._favorites_repository = favorites_repository
+        self._persistent_spec_cache = spec_cache
+        self._favorite_dids = (
+            favorites_repository.list_dids()
+            if favorites_repository is not None
+            else set()
+        )
         self._devices: dict[str, BaseDevice] = {}
         self._spec_cache: dict[str, dict[str, Any]] = {}
+        self._pending_models: set[str] = set()
 
     @property
     def devices(self) -> tuple[BaseDevice, ...]:
@@ -55,6 +67,44 @@ class DeviceManager:
             converted[device.did] = device
         self._devices = converted
         logger.info("Converted %d devices into unified models", len(converted))
+        return self.devices
+
+    @property
+    def needs_enrichment(self) -> bool:
+        return bool(self._pending_models)
+
+    def sync_devices_fast(self) -> tuple[BaseDevice, ...]:
+        """Display devices immediately using only already-cached specifications."""
+        converted: dict[str, BaseDevice] = {}
+        pending: set[str] = set()
+        for raw_device in self._adapter.get_devices():
+            model = str(raw_device.get("model") or "")
+            spec = self._get_cached_spec(model)
+            if model and spec is None:
+                pending.add(model)
+            device = self.create_device(raw_device, spec or {})
+            converted[device.did] = device
+        self._devices = converted
+        self._pending_models = pending
+        logger.info(
+            "Displayed %d devices; %d models require background enrichment",
+            len(converted),
+            len(pending),
+        )
+        return self.devices
+
+    def enrich_devices(self) -> tuple[BaseDevice, ...]:
+        """Fetch missing specifications and replace provisional device models."""
+        converted: dict[str, BaseDevice] = {}
+        for device in self.devices:
+            raw_device = device.metadata.get("raw_device") or {}
+            spec = self._load_spec(device.model)
+            enriched = self.create_device(raw_device, spec)
+            enriched.favorite = device.favorite
+            converted[enriched.did] = enriched
+        self._devices = converted
+        self._pending_models.clear()
+        logger.info("Finished background capability enrichment for %d devices", len(converted))
         return self.devices
 
     def create_device(
@@ -88,6 +138,7 @@ class DeviceManager:
             model=str(raw_device.get("model") or spec.get("model") or ""),
             device_type=device_type,
             online=bool(online_value),
+            favorite=str(raw_device.get("did") or "") in self._favorite_dids,
             properties=properties,
             actions=actions,
             primary_state=primary_capability.value if primary_capability else None,
@@ -99,6 +150,17 @@ class DeviceManager:
             return self._devices[did]
         except KeyError as error:
             raise DeviceNotFoundError(f"未找到设备：{did}") from error
+
+    def set_favorite(self, did: str, favorite: bool) -> BaseDevice:
+        device = self.get_device(did)
+        if self._favorites_repository is not None:
+            self._favorites_repository.set_favorite(did, favorite)
+        if favorite:
+            self._favorite_dids.add(did)
+        else:
+            self._favorite_dids.discard(did)
+        device.favorite = favorite
+        return device
 
     def read_property(self, did: str, capability_name: str) -> Any:
         device = self.get_device(did)
@@ -237,9 +299,26 @@ class DeviceManager:
         if not model:
             return {}
         if model not in self._spec_cache:
+            cached = self._get_cached_spec(model)
+            if cached is not None:
+                return cached
             try:
                 self._spec_cache[model] = self._adapter.get_device_spec(model)
             except UnsupportedDeviceError as error:
                 logger.warning("Device spec unavailable for model=%s: %s", model, error)
                 self._spec_cache[model] = {}
+            if self._persistent_spec_cache is not None:
+                self._persistent_spec_cache.put(model, self._spec_cache[model])
         return self._spec_cache[model]
+
+    def _get_cached_spec(self, model: str) -> dict[str, Any] | None:
+        if not model:
+            return {}
+        if model in self._spec_cache:
+            return self._spec_cache[model]
+        if self._persistent_spec_cache is None:
+            return None
+        cached = self._persistent_spec_cache.get(model)
+        if cached is not None:
+            self._spec_cache[model] = cached
+        return cached

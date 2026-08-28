@@ -1,5 +1,6 @@
 from app import __version__
 from app.application import create_application
+from app.ui.style import load_stylesheet
 from app.ui.main_window import MainWindow
 
 
@@ -8,6 +9,13 @@ def test_application_metadata(qapp):
 
     assert application.applicationName() == "Mijia Desktop"
     assert application.applicationVersion() == __version__
+
+
+def test_search_style_keeps_typed_text_readable():
+    stylesheet = load_stylesheet()
+    assert "QLineEdit#deviceSearch" in stylesheet
+    assert "color: #202124" in stylesheet
+    assert "placeholder-text-color: #7a828b" in stylesheet
 
 
 def test_main_window_can_be_created(qapp):

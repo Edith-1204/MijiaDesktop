@@ -28,6 +28,7 @@ class DeviceCard(QFrame):
 
     quick_switch_requested = Signal(str, bool)
     detail_requested = Signal(str)
+    favorite_requested = Signal(str, bool)
 
     def __init__(self, device: BaseDevice, parent=None) -> None:
         super().__init__(parent)
@@ -49,6 +50,14 @@ class DeviceCard(QFrame):
         self.name_label.setWordWrap(True)
         heading.addWidget(self.icon_label)
         heading.addWidget(self.name_label, 1)
+        self.favorite_button = QPushButton()
+        self.favorite_button.setObjectName("favoriteButton")
+        self.favorite_button.setCheckable(True)
+        self.favorite_button.setToolTip("收藏设备")
+        self.favorite_button.clicked.connect(
+            lambda checked: self.favorite_requested.emit(self.device.did, checked)
+        )
+        heading.addWidget(self.favorite_button)
         root.addLayout(heading)
 
         self.model_label = QLabel()
@@ -91,6 +100,9 @@ class DeviceCard(QFrame):
         self.icon_label.setText(DEVICE_ICONS.get(device.device_type, "◇"))
         self.name_label.setText(device.name)
         self.model_label.setText(device.model or "未知型号")
+        self.favorite_button.setChecked(device.favorite)
+        self.favorite_button.setText("★" if device.favorite else "☆")
+        self.favorite_button.setToolTip("取消收藏" if device.favorite else "收藏设备")
         self.online_label.setText("● 在线" if device.online else "○ 离线/未知")
         self.online_label.setProperty("online", device.online)
 

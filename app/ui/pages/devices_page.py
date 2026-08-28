@@ -24,9 +24,11 @@ class DevicesPage(QWidget):
     refresh_requested = Signal()
     quick_switch_requested = Signal(str, bool)
     detail_requested = Signal(str)
+    favorite_requested = Signal(str, bool)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self.setObjectName("devicesPage")
         self._devices: tuple[BaseDevice, ...] = ()
         self._cards: dict[str, DeviceCard] = {}
 
@@ -36,11 +38,11 @@ class DevicesPage(QWidget):
 
         header = QHBoxLayout()
         title_block = QVBoxLayout()
-        title = QLabel("我的设备")
-        title.setObjectName("pageTitle")
+        self.title_label = QLabel("我的设备")
+        self.title_label.setObjectName("pageTitle")
         self.status_label = QLabel("尚未同步")
         self.status_label.setObjectName("pageStatus")
-        title_block.addWidget(title)
+        title_block.addWidget(self.title_label)
         title_block.addWidget(self.status_label)
         header.addLayout(title_block)
         header.addStretch(1)
@@ -58,9 +60,12 @@ class DevicesPage(QWidget):
         root.addWidget(self.search_input)
 
         self.scroll_area = QScrollArea()
+        self.scroll_area.setObjectName("deviceScroll")
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.scroll_area.viewport().setObjectName("deviceViewport")
         self.scroll_content = QWidget()
+        self.scroll_content.setObjectName("deviceCanvas")
         self.grid = QGridLayout(self.scroll_content)
         self.grid.setContentsMargins(0, 0, 8, 0)
         self.grid.setHorizontalSpacing(14)
@@ -81,14 +86,22 @@ class DevicesPage(QWidget):
 
     def set_devices(self, devices: tuple[BaseDevice, ...]) -> None:
         self._devices = devices
-        for card in self._cards.values():
-            card.deleteLater()
-        self._cards.clear()
+        existing = self._cards
+        updated: dict[str, DeviceCard] = {}
         for device in devices:
-            card = DeviceCard(device)
-            card.quick_switch_requested.connect(self.quick_switch_requested)
-            card.detail_requested.connect(self.detail_requested)
-            self._cards[device.did] = card
+            card = existing.pop(device.did, None)
+            if card is None:
+                card = DeviceCard(device, self.scroll_content)
+                card.quick_switch_requested.connect(self.quick_switch_requested)
+                card.detail_requested.connect(self.detail_requested)
+                card.favorite_requested.connect(self.favorite_requested)
+            else:
+                card.update_device(device)
+            updated[device.did] = card
+        for card in existing.values():
+            card.hide()
+            card.deleteLater()
+        self._cards = updated
         self.status_label.setText(f"共 {len(devices)} 台设备")
         self._apply_filter()
 

@@ -103,3 +103,20 @@ def test_spec_is_cached_per_model():
 
     assert adapter.calls.count(("get_device_spec", "test.light.v1")) == 1
 
+
+def test_numbered_on_capability_is_available_through_on_alias():
+    adapter = FakeAdapter()
+    numbered_spec = {
+        **LIGHT_SPEC,
+        "properties": [
+            {**LIGHT_SPEC["properties"][0], "name": "on-2"},
+            {**LIGHT_SPEC["properties"][0], "name": "on-5", "method": {"siid": 5, "piid": 1}},
+        ],
+    }
+    adapter.get_device_spec = lambda _model: numbered_spec
+    manager = DeviceManager(adapter)
+    device = manager.sync_devices()[0]
+
+    manager.set_property(device.did, "on", True)
+
+    assert adapter.calls[-1] == ("set_property", "light-1", 2, 1, True)

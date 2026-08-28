@@ -1,0 +1,27 @@
+QMainWindow, QWidget#windowRoot { background: #f4f6f8; color: #202124; font-family: "Segoe UI", "Microsoft YaHei UI"; font-size: 14px; }
+QFrame#sidebar { background: #ffffff; border-right: 1px solid #e3e7eb; }
+QLabel#brandTitle { color: #15171a; font-size: 19px; font-weight: 700; }
+QLabel#brandSubtitle, QLabel#pageStatus, QLabel#deviceModel { color: #747b84; }
+QPushButton#navButton { background: transparent; border: none; border-radius: 8px; padding: 11px 14px; text-align: left; font-weight: 600; }
+QPushButton#navButton:hover { background: #f0f3f6; }
+QPushButton#navButton:checked { background: #e8f1ff; color: #1769c2; }
+QLabel#pageTitle { color: #15171a; font-size: 25px; font-weight: 700; }
+QLineEdit#deviceSearch { background: #ffffff; border: 1px solid #d9dee4; border-radius: 9px; padding: 10px 13px; selection-background-color: #2f7edb; }
+QLineEdit#deviceSearch:focus { border-color: #2f7edb; }
+QPushButton#refreshButton, QPushButton#quickSwitch { border: none; border-radius: 8px; padding: 9px 15px; font-weight: 600; }
+QPushButton#refreshButton { background: #e8edf2; color: #29313a; }
+QPushButton#refreshButton:hover { background: #dfe5eb; }
+QFrame#deviceCard { background: #ffffff; border: 1px solid #e0e4e8; border-radius: 12px; }
+QFrame#deviceCard:hover { border-color: #b9c5d2; }
+QLabel#deviceIcon { font-size: 24px; }
+QLabel#deviceName { color: #16191d; font-size: 16px; font-weight: 700; }
+QLabel#deviceModel { font-size: 12px; }
+QLabel#onlineStatus { color: #8a9199; font-size: 12px; }
+QLabel#onlineStatus[online="true"] { color: #19945c; }
+QLabel#primaryState { color: #4c5661; font-weight: 700; }
+QPushButton#quickSwitch { background: #eef1f4; color: #37414b; }
+QPushButton#quickSwitch:checked { background: #2f7edb; color: #ffffff; }
+QPushButton#quickSwitch:disabled { background: #e6e8eb; color: #8c9299; }
+QLabel#emptyState { color: #7c838b; font-size: 15px; padding: 48px; }
+QScrollArea { background: transparent; }
+

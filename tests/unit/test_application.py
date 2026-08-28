@@ -14,6 +14,5 @@ def test_main_window_can_be_created(qapp):
     window = MainWindow()
 
     assert window.windowTitle() == "Mijia Desktop"
-    assert window.minimumWidth() == 720
-    assert window.minimumHeight() == 480
-
+    assert window.minimumWidth() == 760
+    assert window.minimumHeight() == 520

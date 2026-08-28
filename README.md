@@ -62,6 +62,18 @@ python scripts/mijia_poc.py action --did DEVICE_DID --siid 2 --aiid 1 --yes
 python scripts/device_model_poc.py
 ```
 
+## Phase 3 Main Window
+
+主窗口包含侧边导航、全部设备页面、设备名称/型号搜索、响应式设备卡片、在线状态、
+主要开关状态和快速开关。设备同步和控制均通过 `Worker` 在线程池中执行，Qt 主线程
+只负责界面更新。
+
+启动主窗口：
+
+```powershell
+python -m app.main
+```
+
 ## License
 
 GPL-3.0-or-later。详见 [LICENSE](LICENSE)。

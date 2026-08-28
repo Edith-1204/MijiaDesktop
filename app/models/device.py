@@ -45,6 +45,17 @@ class BaseDevice:
         direct = self.properties.get(normalized)
         if direct is not None:
             return direct
+        if normalized == "on":
+            on_variants = sorted(
+                (
+                    capability
+                    for capability in self.properties.values()
+                    if capability.name.lower().replace("_", "-").startswith("on-")
+                ),
+                key=lambda capability: (not capability.writable, capability.siid, capability.piid),
+            )
+            if on_variants:
+                return on_variants[0]
         return next(
             (
                 capability
@@ -67,4 +78,3 @@ class BaseDevice:
             ),
             None,
         )
-

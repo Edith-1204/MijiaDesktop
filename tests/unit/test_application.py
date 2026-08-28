@@ -1,5 +1,5 @@
 from app import __version__
-from app.application import create_application
+from app.application import create_application, load_application_icon
 from app.ui.style import load_stylesheet
 from app.ui.main_window import MainWindow
 
@@ -9,6 +9,14 @@ def test_application_metadata(qapp):
 
     assert application.applicationName() == "Mijia Desktop"
     assert application.applicationVersion() == __version__
+    assert not application.windowIcon().isNull()
+
+
+def test_application_icon_is_available():
+    icon = load_application_icon()
+
+    assert not icon.isNull()
+    assert icon.availableSizes()
 
 
 def test_search_style_keeps_typed_text_readable():
@@ -31,5 +39,6 @@ def test_main_window_can_be_created(qapp):
     window = MainWindow()
 
     assert window.windowTitle() == "Mijia Desktop"
+    assert not window.windowIcon().isNull()
     assert window.minimumWidth() == 760
     assert window.minimumHeight() == 520

@@ -27,6 +27,7 @@ executable = EXE(
     analysis.datas,
     [],
     name="MijiaDesktop",
+    icon=str(project_root / "resources" / "icons" / "mijia.ico"),
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

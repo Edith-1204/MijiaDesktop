@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.application import load_application_icon
 from app.core.account_manager import AccountManager
 from app.core.device_manager import DeviceManager
 from app.core.settings_manager import SettingsManager, ThemeMode
@@ -71,6 +72,7 @@ class MainWindow(QMainWindow):
         self.refresh_timer.timeout.connect(self.refresh_primary_states)
 
         self.setWindowTitle("Mijia Desktop")
+        self.setWindowIcon(load_application_icon())
         self.resize(QSize(1080, 720))
         self.setMinimumSize(QSize(760, 520))
         if self.theme_service is not None:

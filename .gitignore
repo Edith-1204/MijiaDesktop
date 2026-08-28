@@ -24,8 +24,8 @@ Thumbs.db
 # Application state and secrets
 auth.json
 *.auth.json
+auth.dat
 qr.png
 data/
 logs/
 *.log
-

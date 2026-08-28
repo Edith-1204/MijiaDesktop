@@ -2,15 +2,40 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $packagingPython = Join-Path $projectRoot ".venv-packaging\Scripts\python.exe"
 $developmentPython = Join-Path $projectRoot ".venv\Scripts\python.exe"
-$pythonExecutable = if (Test-Path -LiteralPath $packagingPython) {
-    $packagingPython
-}
-else {
-    $developmentPython
+$pythonExecutable = $null
+
+foreach ($candidate in @($packagingPython, $developmentPython)) {
+    if (-not (Test-Path -LiteralPath $candidate)) {
+        continue
+    }
+    $environmentRoot = Split-Path -Parent (Split-Path -Parent $candidate)
+    $configuration = Join-Path $environmentRoot "pyvenv.cfg"
+    if (Test-Path -LiteralPath $configuration) {
+        $homeSetting = Get-Content -LiteralPath $configuration |
+            Where-Object { $_ -match '^home\s*=' } |
+            Select-Object -First 1
+        if ($homeSetting) {
+            $basePython = (Split-Path -Leaf $candidate)
+            $baseDirectory = ($homeSetting -split '=', 2)[1].Trim()
+            if (-not (Test-Path -LiteralPath (Join-Path $baseDirectory $basePython))) {
+                continue
+            }
+        }
+    }
+    try {
+        & $candidate -c "import PyInstaller" 2>$null
+    }
+    catch {
+        continue
+    }
+    if ($LASTEXITCODE -eq 0) {
+        $pythonExecutable = $candidate
+        break
+    }
 }
 
-if (-not (Test-Path -LiteralPath $pythonExecutable)) {
-    throw "Virtual environment not found. Create .venv-packaging or .venv first."
+if ($null -eq $pythonExecutable) {
+    throw "No working virtual environment with PyInstaller was found."
 }
 
 Push-Location $projectRoot

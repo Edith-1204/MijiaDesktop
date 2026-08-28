@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QPlainTextEdit,
     QPushButton,
     QScrollArea,
     QTabWidget,
@@ -31,6 +34,7 @@ class DeviceDetailPage(QWidget):
         self.generic_control: GenericDeviceControl | None = None
         self.action_control: GenericDeviceControl | None = None
         self.specialized_control: SpecializedDeviceControl | None = None
+        self.advanced_mode = False
         root = QVBoxLayout(self)
         root.setContentsMargins(28, 24, 28, 24)
         root.setSpacing(16)
@@ -66,6 +70,11 @@ class DeviceDetailPage(QWidget):
         self.info_widget = QWidget()
         self.info_form = QFormLayout(self.info_widget)
         self.tabs.addTab(self.info_widget, "设备信息")
+        self.debug_output = QPlainTextEdit()
+        self.debug_output.setObjectName("debugOutput")
+        self.debug_output.setReadOnly(True)
+        self.debug_tab_index = self.tabs.addTab(self.debug_output, "MIoT Debug")
+        self.tabs.setTabVisible(self.debug_tab_index, False)
         root.addWidget(self.tabs, 1)
 
     def set_device(self, device: BaseDevice) -> None:
@@ -100,10 +109,59 @@ class DeviceDetailPage(QWidget):
         while self.info_form.rowCount():
             self.info_form.removeRow(0)
         self.info_form.addRow("名称", QLabel(device.name))
-        self.info_form.addRow("Model", QLabel(device.model or "—"))
-        self.info_form.addRow("DID", QLabel(device.did))
         self.info_form.addRow("类型", QLabel(device.device_type.value))
         self.info_form.addRow("状态", QLabel("在线" if device.online else "离线/未知"))
+        self._refresh_debug_output()
+
+    def set_advanced_mode(self, enabled: bool) -> None:
+        self.advanced_mode = enabled
+        self.tabs.setTabVisible(self.debug_tab_index, enabled)
+        self._refresh_debug_output()
+
+    def _refresh_debug_output(self) -> None:
+        if self.device is None:
+            self.debug_output.clear()
+            return
+        device = self.device
+        payload = {
+            "name": device.name,
+            "model": device.model,
+            "did": device.did,
+            "type": device.device_type.value,
+            "online": device.online,
+            "properties": [
+                {
+                    "name": capability.name,
+                    "description": capability.description,
+                    "siid": capability.siid,
+                    "piid": capability.piid,
+                    "value": capability.value,
+                    "value_type": capability.value_type,
+                    "readable": capability.readable,
+                    "writable": capability.writable,
+                    "unit": capability.unit,
+                    "range": [capability.min_value, capability.max_value, capability.step],
+                    "enum_values": capability.enum_values,
+                    "metadata": capability.metadata,
+                }
+                for capability in device.properties.values()
+            ],
+            "actions": [
+                {
+                    "name": action.name,
+                    "description": action.description,
+                    "siid": action.siid,
+                    "aiid": action.aiid,
+                    "parameters": action.parameters,
+                    "metadata": action.metadata,
+                }
+                for action in device.actions.values()
+            ],
+            "metadata": device.metadata,
+        }
+        self.debug_output.setPlainText(
+            json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+        )
 
     def begin_property_update(self, name: str) -> None:
         if self.specialized_control is not None:
@@ -126,6 +184,7 @@ class DeviceDetailPage(QWidget):
                 capability = device.capability(name)
                 if capability is not None:
                     widget.finish(True, capability.value)
+        self._refresh_debug_output()
 
     def finish_property_update(
         self,

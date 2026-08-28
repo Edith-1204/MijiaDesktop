@@ -1,3 +1,6 @@
+from PySide6.QtCore import QSettings
+
+from app.core.settings_manager import SettingsManager
 from app.models.capability import DeviceCapability
 from app.models.device import BaseDevice, DeviceType
 from app.ui.main_window import MainWindow
@@ -216,3 +219,99 @@ def test_close_hides_window_when_tray_is_available(qtbot):
     assert not window.isVisible()
     assert messages == [True]
     window._allow_exit = True
+
+
+def test_main_window_settings_change_refresh_and_advanced_mode(qtbot, tmp_path):
+    settings = SettingsManager(
+        QSettings(str(tmp_path / "window.ini"), QSettings.Format.IniFormat)
+    )
+    window = MainWindow(settings_manager=settings, auto_refresh=False)
+    qtbot.addWidget(window)
+
+    window.change_refresh_interval(5)
+    window.change_advanced_mode(True)
+    window.show_settings_page()
+
+    assert window.refresh_timer.interval() == 5_000
+    assert settings.refresh_interval == 5
+    assert settings.advanced_mode
+    assert window.device_detail_page.advanced_mode
+    assert window.pages.currentWidget() is window.settings_page
+    assert window.settings_button.isChecked()
+
+
+class FakeAccountManager:
+    def __init__(self):
+        self.calls = []
+
+    def logout(self):
+        self.calls.append("logout")
+
+    def begin_login(self):
+        self.calls.append("begin_login")
+        return None
+
+    def has_stored_credentials(self):
+        return True
+
+
+class FakeStartupService:
+    def __init__(self):
+        self.enabled = False
+
+    def set_enabled(self, enabled):
+        self.enabled = enabled
+
+    def is_enabled(self):
+        return self.enabled
+
+
+def test_main_window_logout_and_session_refresh_login(qtbot):
+    account = FakeAccountManager()
+    manager = FakeManager()
+    window = MainWindow(
+        manager,
+        account_manager=account,
+        auto_refresh=False,
+    )
+    qtbot.addWidget(window)
+    window.logout()
+    assert window.pages.currentWidget() is window.login_page
+    assert account.calls == ["logout"]
+
+    window.begin_login()
+    qtbot.waitUntil(lambda: account.calls == ["logout", "begin_login"])
+    qtbot.waitUntil(lambda: window.pages.currentWidget() is window.devices_page)
+    qtbot.waitUntil(lambda: "light-1" in window.devices_page.cards)
+
+
+def test_main_window_startup_checkbox_writes_service(qtbot, tmp_path):
+    settings = SettingsManager(
+        QSettings(str(tmp_path / "startup.ini"), QSettings.Format.IniFormat)
+    )
+    startup = FakeStartupService()
+    window = MainWindow(
+        settings_manager=settings,
+        startup_service=startup,
+        auto_refresh=False,
+    )
+    qtbot.addWidget(window)
+
+    window.settings_page.startup_checkbox.click()
+
+    assert startup.enabled
+    assert settings.startup_enabled
+    assert window.settings_page.status_label.text() == "开机启动设置已保存"
+
+
+def test_main_window_starts_on_login_page_without_stored_credentials(qtbot):
+    account = FakeAccountManager()
+    account.has_stored_credentials = lambda: False
+    window = MainWindow(
+        FakeManager(),
+        account_manager=account,
+        auto_refresh=True,
+    )
+    qtbot.addWidget(window)
+
+    assert window.pages.currentWidget() is window.login_page

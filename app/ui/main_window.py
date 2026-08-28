@@ -19,12 +19,18 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.core.account_manager import AccountManager
 from app.core.device_manager import DeviceManager
+from app.core.settings_manager import SettingsManager, ThemeMode
 from app.core.state_manager import StateManager
+from app.services.startup_service import StartupService
+from app.services.theme_service import ThemeService
 from app.services.tray_service import TrayService
 from app.ui.pages.device_detail_page import DeviceDetailPage
 from app.ui.pages.devices_page import DevicesPage
 from app.ui.pages.favorites_page import FavoritesPage
+from app.ui.pages.login_page import LoginPage
+from app.ui.pages.settings_page import SettingsPage
 from app.ui.style import load_stylesheet
 from app.workers.base_worker import Worker
 
@@ -37,6 +43,10 @@ class MainWindow(QMainWindow):
         device_manager: DeviceManager | None = None,
         *,
         state_manager: StateManager | None = None,
+        settings_manager: SettingsManager | None = None,
+        theme_service: ThemeService | None = None,
+        startup_service: StartupService | None = None,
+        account_manager: AccountManager | None = None,
         auto_refresh: bool = True,
         enable_tray: bool = False,
     ) -> None:
@@ -45,6 +55,10 @@ class MainWindow(QMainWindow):
         self.state_manager = state_manager or (
             StateManager(device_manager) if device_manager is not None else None
         )
+        self.settings_manager = settings_manager or SettingsManager()
+        self.theme_service = theme_service
+        self.startup_service = startup_service
+        self.account_manager = account_manager
         self.thread_pool = QThreadPool(self)
         self.thread_pool.setMaxThreadCount(1)
         self._active_workers: set[Worker] = set()
@@ -53,13 +67,19 @@ class MainWindow(QMainWindow):
         self._allow_exit = False
         self._return_page: QWidget | None = None
         self.refresh_timer = QTimer(self)
-        self.refresh_timer.setInterval(30_000)
+        self.refresh_timer.setInterval(self.settings_manager.refresh_interval * 1_000)
         self.refresh_timer.timeout.connect(self.refresh_primary_states)
 
         self.setWindowTitle("Mijia Desktop")
         self.resize(QSize(1080, 720))
         self.setMinimumSize(QSize(760, 520))
-        self.setStyleSheet(load_stylesheet())
+        if self.theme_service is not None:
+            self.theme_service.apply(self.settings_manager.theme)
+        else:
+            fallback_theme = (
+                "dark" if self.settings_manager.theme is ThemeMode.DARK else "light"
+            )
+            self.setStyleSheet(load_stylesheet(fallback_theme))
 
         root_widget = QWidget()
         root_widget.setObjectName("windowRoot")
@@ -91,6 +111,10 @@ class MainWindow(QMainWindow):
         self.favorites_button.setCheckable(True)
         sidebar_layout.addWidget(self.favorites_button)
         sidebar_layout.addStretch(1)
+        self.settings_button = QPushButton("⚙  设置")
+        self.settings_button.setObjectName("navButton")
+        self.settings_button.setCheckable(True)
+        sidebar_layout.addWidget(self.settings_button)
         version = QLabel("V0.1 Alpha")
         version.setObjectName("brandSubtitle")
         sidebar_layout.addWidget(version)
@@ -101,13 +125,24 @@ class MainWindow(QMainWindow):
         self.devices_page = DevicesPage()
         self.favorites_page = FavoritesPage()
         self.device_detail_page = DeviceDetailPage()
+        self.settings_page = SettingsPage(self.settings_manager)
+        self.login_page = LoginPage()
         self.pages.addWidget(self.devices_page)
         self.pages.addWidget(self.favorites_page)
         self.pages.addWidget(self.device_detail_page)
+        self.pages.addWidget(self.settings_page)
+        self.pages.addWidget(self.login_page)
         root.addWidget(self.pages, 1)
+
+        self.device_detail_page.set_advanced_mode(self.settings_manager.advanced_mode)
+        account_available = self.account_manager is not None
+        self.settings_page.relogin_button.setEnabled(account_available)
+        self.settings_page.logout_button.setEnabled(account_available)
+        self.login_page.login_button.setEnabled(account_available)
 
         self.devices_button.clicked.connect(self.show_devices_page)
         self.favorites_button.clicked.connect(self.show_favorites_page)
+        self.settings_button.clicked.connect(self.show_settings_page)
         self.devices_page.refresh_requested.connect(self.manual_refresh)
         self.favorites_page.refresh_requested.connect(self.manual_refresh)
         self.devices_page.quick_switch_requested.connect(self.quick_switch)
@@ -119,6 +154,15 @@ class MainWindow(QMainWindow):
         self.device_detail_page.back_requested.connect(self.show_return_page)
         self.device_detail_page.property_change_requested.connect(self.change_property)
         self.device_detail_page.action_requested.connect(self.run_device_action)
+        self.settings_page.theme_changed.connect(self.change_theme)
+        self.settings_page.refresh_interval_changed.connect(
+            self.change_refresh_interval
+        )
+        self.settings_page.startup_changed.connect(self.change_startup)
+        self.settings_page.advanced_mode_changed.connect(self.change_advanced_mode)
+        self.settings_page.relogin_requested.connect(self.relogin)
+        self.settings_page.logout_requested.connect(self.logout)
+        self.login_page.login_requested.connect(self.begin_login)
 
         self.tray_service = TrayService(self) if enable_tray else None
         if self.tray_service is not None:
@@ -128,8 +172,15 @@ class MainWindow(QMainWindow):
             self.tray_service.quick_switch_requested.connect(self.quick_switch)
             self.tray_service.quit_requested.connect(self.quit_application)
 
+        has_credentials = (
+            self.account_manager is None
+            or self.account_manager.has_stored_credentials()
+        )
         if self.device_manager is None:
             self.devices_page.status_label.setText("尚未连接设备服务")
+        elif not has_credentials:
+            self.pages.setCurrentWidget(self.login_page)
+            self._set_navigation(None)
         elif auto_refresh:
             self.refresh_devices()
 
@@ -175,7 +226,8 @@ class MainWindow(QMainWindow):
         self._show_device_snapshot(devices)
         if self.state_manager is not None:
             self.state_manager.seed(devices)
-            self.refresh_timer.start()
+            if self.settings_manager.refresh_interval > 0:
+                self.refresh_timer.start()
 
     def _on_device_sync_error(self, error: Exception) -> None:
         self.devices_page.show_error(str(error))
@@ -265,13 +317,23 @@ class MainWindow(QMainWindow):
 
     def show_devices_page(self) -> None:
         self.pages.setCurrentWidget(self.devices_page)
-        self.devices_button.setChecked(True)
-        self.favorites_button.setChecked(False)
+        self._set_navigation(self.devices_button)
 
     def show_favorites_page(self) -> None:
         self.pages.setCurrentWidget(self.favorites_page)
-        self.devices_button.setChecked(False)
-        self.favorites_button.setChecked(True)
+        self._set_navigation(self.favorites_button)
+
+    def show_settings_page(self) -> None:
+        self.pages.setCurrentWidget(self.settings_page)
+        self._set_navigation(self.settings_button)
+
+    def _set_navigation(self, selected: QPushButton | None) -> None:
+        for button in (
+            self.devices_button,
+            self.favorites_button,
+            self.settings_button,
+        ):
+            button.setChecked(button is selected)
 
     def show_return_page(self) -> None:
         if self._return_page is self.favorites_page:
@@ -290,9 +352,109 @@ class MainWindow(QMainWindow):
         self._return_page = self.pages.currentWidget()
         self.device_detail_page.set_device(device)
         self.pages.setCurrentWidget(self.device_detail_page)
-        self.devices_button.setChecked(False)
-        self.favorites_button.setChecked(False)
+        self._set_navigation(None)
         self.refresh_states({did})
+
+    def change_theme(self, value: str) -> None:
+        self.settings_manager.theme = value
+        if self.theme_service is not None:
+            self.theme_service.apply(value)
+        else:
+            self.setStyleSheet(load_stylesheet("dark" if value == "dark" else "light"))
+        self.settings_page.show_status("主题设置已保存")
+
+    def change_refresh_interval(self, seconds: int) -> None:
+        self.settings_manager.refresh_interval = seconds
+        self.refresh_timer.stop()
+        if seconds > 0:
+            self.refresh_timer.setInterval(seconds * 1_000)
+            if self._devices_loaded and self.state_manager is not None:
+                self.refresh_timer.start()
+        self.settings_page.show_status(
+            "已改为手动刷新" if seconds == 0 else f"每 {seconds} 秒刷新一次"
+        )
+
+    def change_startup(self, enabled: bool) -> None:
+        if self.startup_service is None:
+            self._restore_startup_checkbox()
+            self.settings_page.show_status("当前环境不支持开机启动")
+            return
+        try:
+            self.startup_service.set_enabled(enabled)
+            if self.startup_service.is_enabled() is not enabled:
+                raise RuntimeError("Windows 未确认启动项写入")
+            self.settings_manager.startup_enabled = enabled
+            self.settings_page.show_status("开机启动设置已保存")
+        except Exception as error:
+            self._restore_startup_checkbox()
+            self.settings_page.show_status(f"开机启动设置失败：{error}")
+
+    def _restore_startup_checkbox(self) -> None:
+        checkbox = self.settings_page.startup_checkbox
+        checkbox.blockSignals(True)
+        checkbox.setChecked(self.settings_manager.startup_enabled)
+        checkbox.blockSignals(False)
+
+    def change_advanced_mode(self, enabled: bool) -> None:
+        self.settings_manager.advanced_mode = enabled
+        self.device_detail_page.set_advanced_mode(enabled)
+        self.settings_page.show_status("高级模式设置已保存")
+
+    def relogin(self) -> None:
+        if self.account_manager is None:
+            return
+        try:
+            self.account_manager.logout()
+        except Exception as error:
+            self.settings_page.show_status(f"无法清除登录状态：{error}")
+            return
+        self.begin_login()
+
+    def logout(self) -> None:
+        if self.account_manager is None:
+            return
+        try:
+            self.account_manager.logout()
+        except Exception as error:
+            self.settings_page.show_status(f"退出账号失败：{error}")
+            return
+        self.refresh_timer.stop()
+        self._devices_loaded = False
+        self.devices_page.set_devices(())
+        self.favorites_page.set_devices(())
+        self.pages.setCurrentWidget(self.login_page)
+        self._set_navigation(None)
+        self.login_page.status_label.setText("账号已退出，可重新生成二维码登录")
+        self.login_page.set_loading(False)
+
+    def begin_login(self) -> None:
+        if self.account_manager is None:
+            return
+        self.pages.setCurrentWidget(self.login_page)
+        self._set_navigation(None)
+        self.login_page.set_loading(True)
+        self.login_page.status_label.setText("正在准备登录…")
+        self._run_background(
+            self.account_manager.begin_login,
+            on_result=self._on_login_started,
+            on_error=self.login_page.show_error,
+        )
+
+    def _on_login_started(self, qr_path) -> None:
+        if qr_path is None:
+            self._on_login_complete(None)
+            return
+        self.login_page.show_qr(qr_path)
+        self._run_background(
+            self.account_manager.complete_login,
+            on_result=self._on_login_complete,
+            on_error=self.login_page.show_error,
+        )
+
+    def _on_login_complete(self, _result: Any) -> None:
+        self.login_page.set_loading(False)
+        self.show_devices_page()
+        self.refresh_devices()
 
     def change_favorite(self, did: str, favorite: bool) -> None:
         if self.device_manager is None:

@@ -4,7 +4,8 @@ Mijia Desktop（米家桌面控制中心）是面向 Windows 11 的开源米家�
 
 项目当前按《Mijia Desktop 项目计划书 V1.0》分阶段开发。Phase 0 提供可运行的
 PySide6 工程骨架；Phase 1 提供经 `MijiaAdapter` 隔离的命令行访问链路；Phase 2
-建立统一设备模型；Phase 3 提供设备总览；Phase 4 提供 Capability 驱动的通用控制。
+建立统一设备模型；Phase 3–8 已完成设备总览、通用/专用控制、状态管理、收藏与托盘，
+以及完整设置页面。目前正在进行 Phase 8 本机验收，验收后进入 Phase 9 打包。
 
 ## 环境要求
 
@@ -36,8 +37,8 @@ pytest
 
 ## Phase 1 PoC
 
-扫码登录时会在 `data/runtime/` 中短暂生成本地二维码，登录结束或失败后自动删除。
-认证数据使用 Windows DPAPI 加密后保存，明文只存在于进程私有临时目录。
+扫码登录时会在进程私有临时目录中生成二维码，应用退出时自动删除。认证数据使用
+Windows DPAPI 加密后保存，明文只存在于进程私有临时目录。
 
 ```powershell
 python scripts/mijia_poc.py login
@@ -114,6 +115,16 @@ Windows 系统托盘提供打开主界面、刷新设备、退出，以及具有
 
 启动同步采用两阶段加载：设备列表获取后立即显示，缺失的 MIoT 控制规格在后台补全
 并写入本地缓存。后续启动直接复用规格缓存，避免每次逐型号等待云端查询。
+
+## Phase 8 Settings
+
+设置页支持跟随 Windows、浅色和深色主题，5/10/30/60/120 秒或手动状态刷新，
+开机自动运行、高级模式、重新登录与退出账号。设置通过 `QSettings` 持久化，开机启动
+使用当前用户的 Windows Run 注册项，不需要管理员权限。
+
+高级模式会在设备详情中显示独立的 `MIoT Debug` 页签，其中包含 DID、Model、
+SIID/PIID/AIID、Property、Action 和原始 metadata；关闭高级模式时这些开发字段不会
+出现在普通设备信息页。
 
 ## License
 

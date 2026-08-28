@@ -44,6 +44,29 @@ class FakeAPI:
         return {**data, "code": 0}
 
 
+class FakeCredentialStore:
+    def __init__(self, path):
+        self.path = path
+        self.clear_calls = 0
+
+    @property
+    def working_directory(self):
+        return self.path.parent
+
+    def prepare(self):
+        return self.path
+
+    def persist(self):
+        pass
+
+    def clear(self):
+        self.clear_calls += 1
+        self.path.unlink(missing_ok=True)
+
+    def close(self):
+        pass
+
+
 def test_adapter_exposes_complete_poc_chain(tmp_path):
     api = FakeAPI()
     adapter = MijiaAdapter(
@@ -88,6 +111,33 @@ def test_existing_session_skips_qr_download(tmp_path):
 
     assert fetched == []
     assert not (tmp_path / "mijia-login-qr.png").exists()
+
+
+def test_clear_credentials_rebuilds_api_and_forces_qr_login(tmp_path):
+    store = FakeCredentialStore(tmp_path / "auth.json")
+    clients = []
+
+    def factory(auth_path):
+        api = FakeAPI()
+        api.auth_data_path = auth_path
+        if not clients:
+            api._get_qr_login_data = lambda: {"refreshed": True}
+        clients.append(api)
+        return api
+
+    adapter = MijiaAdapter(
+        credential_store=store,
+        api_factory=factory,
+        qr_fetcher=lambda _url: b"\x89PNG\r\n\x1a\nqr-data",
+    )
+    assert adapter.begin_login() is None
+
+    adapter.clear_credentials()
+    qr_path = adapter.begin_login()
+
+    assert store.clear_calls == 1
+    assert len(clients) == 2
+    assert qr_path == tmp_path / "mijia-login-qr.png"
 
 
 def test_invalid_qr_response_is_rejected(tmp_path):

@@ -106,8 +106,9 @@ class WindowsCredentialStore:
 
     def clear(self) -> None:
         """Delete both protected and temporary authentication material."""
-        self.close()
         self.protected_path.unlink(missing_ok=True)
+        if self._plain_path is not None:
+            self._plain_path.unlink(missing_ok=True)
 
     def close(self) -> None:
         """Remove plaintext authentication material."""

@@ -1,0 +1,20 @@
+QMainWindow, QWidget#windowRoot, QStackedWidget#pageStack, QWidget#devicesPage, QWidget#favoritesPage, QWidget#settingsPage, QWidget#loginPage, QScrollArea#deviceScroll, QWidget#deviceViewport, QWidget#deviceCanvas { background: #17191c; color: #e8eaed; }
+QFrame#sidebar { background: #202327; border-right-color: #353a40; }
+QLabel#brandTitle, QLabel#pageTitle, QLabel#deviceName, QLabel#sectionTitle, QLabel#controlTitle, QLabel#propertyName { color: #f1f3f4; }
+QLabel#brandSubtitle, QLabel#pageStatus, QLabel#deviceModel, QLabel#controlDescription, QLabel#propertyIdentifier { color: #aeb4bb; }
+QPushButton#navButton { background: #292d32; border-color: #3a4047; color: #e1e5e9; }
+QPushButton#navButton:hover { background: #343940; }
+QPushButton#navButton:checked { background: #173a5e; border-color: #2e6fae; color: #8fc5ff; }
+QLineEdit#deviceSearch, QComboBox, QComboBox#enumEditor, QSpinBox, QSpinBox#numberEditor, QDoubleSpinBox, QDoubleSpinBox#numberEditor { background: #25292e; color: #f1f3f4; border-color: #434a52; selection-background-color: #2877c7; }
+QComboBox QAbstractItemView { background: #25292e; color: #f1f3f4; border-color: #434a52; selection-background-color: #2877c7; selection-color: #ffffff; }
+QFrame#deviceCard, QFrame#propertyRow, QFrame#actionRow { background: #23272b; border-color: #3a4046; }
+QFrame#settingsPanel { background: #23272b; border-color: #3a4046; }
+QWidget#settingsPage, QWidget#settingsPage QLabel, QWidget#settingsPage QCheckBox { color: #e8eaed; }
+QWidget#settingsPage QPushButton { color: #e1e5e9; }
+QLabel#qrCode { background: #ffffff; color: #5f6368; border-color: #3a4046; }
+QPlainTextEdit#debugOutput { background: #202327; color: #e8eaed; border-color: #434a52; }
+QLabel#primaryState, QLabel#propertyValue, QLabel#readOnlyValue { color: #d8dde2; }
+QPushButton#refreshButton, QPushButton#quickSwitch { background: #343a40; color: #e8eaed; }
+QPushButton#detailsButton, QPushButton#backButton { color: #cbd1d7; }
+QTabBar::tab { background: #2c3136; color: #d8dde2; }
+QTabBar::tab:selected, QPushButton#actionButton { background: #2877c7; color: #ffffff; }

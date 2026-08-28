@@ -84,6 +84,7 @@ class MijiaAdapter:
         qr_directory: Path | None = None,
     ) -> None:
         self._credential_store = credential_store
+        self._api_factory: Callable[[Path], MijiaAPIClient] | None = None
         self._spec_loader = spec_loader
         self._qr_fetcher = qr_fetcher
         self._pending_login_data: dict[str, Any] | None = None
@@ -91,6 +92,7 @@ class MijiaAdapter:
         if api_client is None:
             self._credential_store = credential_store or WindowsCredentialStore()
             auth_path = self._credential_store.prepare()
+            self._api_factory = api_factory
             self._api = api_factory(auth_path)
         else:
             self._api = api_client
@@ -151,6 +153,10 @@ class MijiaAdapter:
             return authenticated
         except Exception as error:
             raise self._translate(error, AuthenticationError, "无法验证米家登录状态") from error
+
+    def has_stored_credentials(self) -> bool:
+        """Return whether a persisted session exists without making a network request."""
+        return self._credential_store is None or self._credential_store.exists
 
     def get_devices(self) -> list[dict[str, Any]]:
         """Return all devices visible to the authenticated account."""
@@ -229,10 +235,16 @@ class MijiaAdapter:
             ) from error
 
     def clear_credentials(self) -> None:
-        """Remove locally stored authentication material."""
+        """Remove stored and in-memory authentication material."""
         self._remove_qr_code()
+        self._pending_login_data = None
         if self._credential_store is not None:
             self._credential_store.clear()
+            if self._api_factory is not None:
+                try:
+                    self._api = self._api_factory(self._credential_store.prepare())
+                except Exception as error:
+                    raise AuthenticationError("无法重置米家登录状态") from error
 
     def close(self) -> None:
         """Persist refreshed credentials and remove their plaintext working copy."""

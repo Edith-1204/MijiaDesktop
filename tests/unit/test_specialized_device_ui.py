@@ -115,7 +115,9 @@ def test_detail_page_separates_common_properties_actions_and_info(qtbot):
         "全部属性",
         "Actions",
         "设备信息",
+        "MIoT Debug",
     ]
+    assert not page.tabs.isTabVisible(page.debug_tab_index)
     assert page.tabs.isTabVisible(0)
     assert isinstance(page.specialized_control, LightControl)
     assert set(page.generic_control.property_widgets) == {"on", "brightness"}
@@ -139,6 +141,23 @@ def test_detail_page_keeps_common_and_full_property_values_in_sync(qtbot):
     assert complete.editor.isChecked()
     assert common.editor.isEnabled()
     assert complete.editor.isEnabled()
+
+
+def test_detail_page_advanced_mode_exposes_miot_identifiers(qtbot):
+    page = DeviceDetailPage()
+    qtbot.addWidget(page)
+    light = device(DeviceType.LIGHT, ("on",))
+    page.set_device(light)
+
+    page.set_advanced_mode(True)
+
+    assert page.tabs.isTabVisible(page.debug_tab_index)
+    debug_text = page.debug_output.toPlainText()
+    assert '"did"' in debug_text
+    assert '"model"' in debug_text
+    assert '"siid"' in debug_text
+    assert '"piid"' in debug_text
+    assert '"aiid"' in debug_text
 
 
 def test_detail_page_hides_common_tab_for_unknown_device(qtbot):

@@ -27,7 +27,7 @@ QPushButton#detailsButton:hover, QPushButton#backButton:hover { background: #edf
 QPushButton#favoriteButton { background: transparent; border: none; color: #7b838c; font-size: 20px; padding: 2px 5px; }
 QPushButton#favoriteButton:checked { color: #f0a500; }
 QLabel#emptyState { color: #7c838b; font-size: 15px; padding: 48px; }
-QStackedWidget#pageStack, QWidget#devicesPage, QScrollArea#deviceScroll, QWidget#deviceViewport, QWidget#deviceCanvas { background: #f4f6f8; border: none; }
+QStackedWidget#pageStack, QWidget#devicesPage, QWidget#favoritesPage, QWidget#settingsPage, QWidget#loginPage, QScrollArea#deviceScroll, QWidget#deviceViewport, QWidget#deviceCanvas { background: #f4f6f8; border: none; }
 QScrollArea { background: transparent; border: none; }
 QTabWidget::pane { border: none; background: transparent; }
 QTabBar::tab { background: #e8edf2; border: none; border-radius: 7px; padding: 9px 16px; margin-right: 6px; }
@@ -44,3 +44,9 @@ QLabel#emptyInline { color: #818890; padding: 14px; }
 QPushButton#actionButton { background: #2f7edb; color: #ffffff; }
 QPushButton#actionButton:disabled { background: #dfe3e7; color: #858b92; }
 QComboBox#enumEditor, QSpinBox#numberEditor, QDoubleSpinBox#numberEditor { min-width: 130px; padding: 7px; border: 1px solid #d5dbe1; border-radius: 6px; background: #ffffff; }
+QFrame#settingsPanel { background: #ffffff; border: 1px solid #dfe3e8; border-radius: 10px; }
+QWidget#settingsPage, QWidget#settingsPage QLabel, QWidget#settingsPage QCheckBox { color: #202124; }
+QWidget#settingsPage QPushButton { color: #343b43; }
+QComboBox, QSpinBox, QDoubleSpinBox, QPlainTextEdit#debugOutput { background: #ffffff; color: #202124; border: 1px solid #c8cdd3; border-radius: 6px; padding: 6px; selection-background-color: #b9dcff; }
+QComboBox QAbstractItemView { background: #ffffff; color: #202124; border: 1px solid #c8cdd3; selection-background-color: #dcecff; selection-color: #145fa8; outline: none; }
+QLabel#qrCode { background: #ffffff; color: #5f6368; border: 1px solid #dfe3e8; border-radius: 12px; }

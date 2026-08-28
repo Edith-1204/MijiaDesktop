@@ -18,6 +18,15 @@ def test_search_style_keeps_typed_text_readable():
     assert "placeholder-text-color: #7a828b" in stylesheet
 
 
+def test_combo_popup_text_is_readable_in_both_themes():
+    light = load_stylesheet("light")
+    dark = load_stylesheet("dark")
+
+    assert "QComboBox QAbstractItemView" in light
+    assert "background: #ffffff; color: #202124" in light
+    assert "background: #25292e; color: #f1f3f4" in dark
+
+
 def test_main_window_can_be_created(qapp):
     window = MainWindow()
 

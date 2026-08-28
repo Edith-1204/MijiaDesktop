@@ -71,6 +71,14 @@ class FakeManager:
         self.device.properties["on"].value = value
         return {"code": 0}
 
+    def get_device(self, did):
+        assert did == self.device.did
+        return self.device
+
+    def run_action(self, did, name, parameters=None):
+        self.calls.append(("run_action", did, name, parameters))
+        return {"code": 0}
+
 
 def test_main_window_sync_and_switch_use_manager_in_background(qtbot):
     manager = FakeManager()
@@ -85,3 +93,33 @@ def test_main_window_sync_and_switch_use_manager_in_background(qtbot):
         ("set_property", "light-1", "on", True),
     ]
 
+
+def test_main_window_opens_detail_and_changes_generic_property(qtbot):
+    manager = FakeManager()
+    window = MainWindow(manager, auto_refresh=True)
+    qtbot.addWidget(window)
+    qtbot.waitUntil(lambda: "light-1" in window.devices_page.cards)
+    window.open_device_detail("light-1")
+    assert window.pages.currentWidget() is window.device_detail_page
+
+    window.change_property("light-1", "on", True)
+    qtbot.waitUntil(lambda: len(manager.calls) == 2)
+    qtbot.waitUntil(lambda: window.device_detail_page.summary_label.text() == "设置成功")
+
+    assert manager.calls[-1] == ("set_property", "light-1", "on", True)
+
+
+def test_main_window_runs_generic_action_through_manager(qtbot):
+    manager = FakeManager()
+    window = MainWindow(manager, auto_refresh=True)
+    qtbot.addWidget(window)
+    qtbot.waitUntil(lambda: "light-1" in window.devices_page.cards)
+    window.open_device_detail("light-1")
+
+    window.run_device_action("light-1", "toggle")
+    qtbot.waitUntil(lambda: len(manager.calls) == 2)
+    qtbot.waitUntil(
+        lambda: window.device_detail_page.summary_label.text() == "Action 执行成功"
+    )
+
+    assert manager.calls[-1] == ("run_action", "light-1", "toggle", None)

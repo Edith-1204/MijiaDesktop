@@ -8,7 +8,7 @@ QPushButton#navButton:checked { background: #e8f1ff; color: #1769c2; }
 QLabel#pageTitle { color: #15171a; font-size: 25px; font-weight: 700; }
 QLineEdit#deviceSearch { background: #ffffff; border: 1px solid #d9dee4; border-radius: 9px; padding: 10px 13px; selection-background-color: #2f7edb; }
 QLineEdit#deviceSearch:focus { border-color: #2f7edb; }
-QPushButton#refreshButton, QPushButton#quickSwitch { border: none; border-radius: 8px; padding: 9px 15px; font-weight: 600; }
+QPushButton#refreshButton, QPushButton#quickSwitch, QPushButton#detailsButton, QPushButton#actionButton, QPushButton#backButton { border: none; border-radius: 8px; padding: 9px 15px; font-weight: 600; }
 QPushButton#refreshButton { background: #e8edf2; color: #29313a; }
 QPushButton#refreshButton:hover { background: #dfe5eb; }
 QFrame#deviceCard { background: #ffffff; border: 1px solid #e0e4e8; border-radius: 12px; }
@@ -22,6 +22,20 @@ QLabel#primaryState { color: #4c5661; font-weight: 700; }
 QPushButton#quickSwitch { background: #eef1f4; color: #37414b; }
 QPushButton#quickSwitch:checked { background: #2f7edb; color: #ffffff; }
 QPushButton#quickSwitch:disabled { background: #e6e8eb; color: #8c9299; }
+QPushButton#detailsButton, QPushButton#backButton { background: transparent; color: #3b4652; }
+QPushButton#detailsButton:hover, QPushButton#backButton:hover { background: #edf0f3; }
 QLabel#emptyState { color: #7c838b; font-size: 15px; padding: 48px; }
 QScrollArea { background: transparent; }
-
+QTabWidget::pane { border: none; background: transparent; }
+QTabBar::tab { background: #e8edf2; border: none; border-radius: 7px; padding: 9px 16px; margin-right: 6px; }
+QTabBar::tab:selected { background: #2f7edb; color: #ffffff; }
+QLabel#sectionTitle { color: #171a1e; font-size: 17px; font-weight: 700; padding-top: 8px; }
+QFrame#propertyRow, QFrame#actionRow { background: #ffffff; border: 1px solid #e0e4e8; border-radius: 9px; }
+QFrame#propertyRow[pending="true"] { background: #f5f7fa; }
+QLabel#propertyName { color: #24282d; font-weight: 600; }
+QLabel#propertyIdentifier { color: #858b93; font-size: 11px; }
+QLabel#propertyValue, QLabel#readOnlyValue { color: #313941; font-weight: 600; }
+QLabel#emptyInline { color: #818890; padding: 14px; }
+QPushButton#actionButton { background: #2f7edb; color: #ffffff; }
+QPushButton#actionButton:disabled { background: #dfe3e7; color: #858b92; }
+QComboBox#enumEditor, QSpinBox#numberEditor, QDoubleSpinBox#numberEditor { min-width: 130px; padding: 7px; border: 1px solid #d5dbe1; border-radius: 6px; background: #ffffff; }

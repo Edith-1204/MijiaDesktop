@@ -3,7 +3,8 @@
 Mijia Desktop（米家桌面控制中心）是面向 Windows 11 的开源米家设备控制应用。
 
 项目当前按《Mijia Desktop 项目计划书 V1.0》分阶段开发。Phase 0 提供可运行的
-PySide6 工程骨架；Phase 1 提供经 `MijiaAdapter` 隔离的命令行访问链路。
+PySide6 工程骨架；Phase 1 提供经 `MijiaAdapter` 隔离的命令行访问链路；Phase 2
+建立统一设备模型；Phase 3 提供设备总览；Phase 4 提供 Capability 驱动的通用控制。
 
 ## 环境要求
 
@@ -73,6 +74,15 @@ python scripts/device_model_poc.py
 ```powershell
 python -m app.main
 ```
+
+## Phase 4 Generic Device UI
+
+设备卡片可进入详情页。通用控件工厂会根据 `DeviceCapability` 自动生成 Boolean、
+带范围 Number、普通 Number、Enum 和 ReadOnly 控件，并根据 `DeviceAction` 生成
+Action 按钮，因此未知设备无需专用界面也能展示和控制大部分 MIoT 能力。
+
+属性写入和 Action 执行统一经 `DeviceManager` 调度到后台线程；失败时控件会恢复到
+上一次确认的值。需要参数的 Action 当前只展示为禁用状态，避免无参数误调用。
 
 ## License
 

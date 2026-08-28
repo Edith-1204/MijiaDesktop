@@ -27,6 +27,7 @@ class DeviceCard(QFrame):
     """Display one BaseDevice without knowing anything about mijiaAPI."""
 
     quick_switch_requested = Signal(str, bool)
+    detail_requested = Signal(str)
 
     def __init__(self, device: BaseDevice, parent=None) -> None:
         super().__init__(parent)
@@ -66,11 +67,17 @@ class DeviceCard(QFrame):
         root.addLayout(status_row)
 
         root.addStretch(1)
+        button_row = QHBoxLayout()
+        self.details_button = QPushButton("查看详情")
+        self.details_button.setObjectName("detailsButton")
+        self.details_button.clicked.connect(lambda: self.detail_requested.emit(self.device.did))
+        button_row.addWidget(self.details_button)
         self.quick_button = QPushButton()
         self.quick_button.setObjectName("quickSwitch")
         self.quick_button.setCheckable(True)
         self.quick_button.clicked.connect(self._request_quick_switch)
-        root.addWidget(self.quick_button)
+        button_row.addWidget(self.quick_button)
+        root.addLayout(button_row)
 
         self.update_device(device)
 
@@ -119,4 +126,3 @@ class DeviceCard(QFrame):
             self.quick_button.setText("处理中…")
         else:
             self.quick_button.setText("关闭" if self.quick_button.isChecked() else "开启")
-

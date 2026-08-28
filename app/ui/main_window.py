@@ -1,4 +1,4 @@
-"""The Phase 3 application shell and background-operation coordinator."""
+"""Application shell and background-operation coordinator."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.device_manager import DeviceManager
+from app.ui.pages.device_detail_page import DeviceDetailPage
 from app.ui.pages.devices_page import DevicesPage
 from app.ui.style import load_stylesheet
 from app.workers.base_worker import Worker
@@ -76,12 +77,18 @@ class MainWindow(QMainWindow):
 
         self.pages = QStackedWidget()
         self.devices_page = DevicesPage()
+        self.device_detail_page = DeviceDetailPage()
         self.pages.addWidget(self.devices_page)
+        self.pages.addWidget(self.device_detail_page)
         root.addWidget(self.pages, 1)
 
         self.devices_button.clicked.connect(lambda: self.pages.setCurrentWidget(self.devices_page))
         self.devices_page.refresh_requested.connect(self.refresh_devices)
         self.devices_page.quick_switch_requested.connect(self.quick_switch)
+        self.devices_page.detail_requested.connect(self.open_device_detail)
+        self.device_detail_page.back_requested.connect(self.show_devices_page)
+        self.device_detail_page.property_change_requested.connect(self.change_property)
+        self.device_detail_page.action_requested.connect(self.run_device_action)
 
         if self.device_manager is None:
             self.devices_page.status_label.setText("尚未连接设备服务")
@@ -116,6 +123,64 @@ class MainWindow(QMainWindow):
             did,
             "on",
             desired_state,
+            on_result=complete,
+            on_error=fail,
+        )
+
+    def show_devices_page(self) -> None:
+        self.pages.setCurrentWidget(self.devices_page)
+        self.devices_button.setChecked(True)
+
+    def open_device_detail(self, did: str) -> None:
+        if self.device_manager is None:
+            return
+        try:
+            device = self.device_manager.get_device(did)
+        except Exception as error:
+            self.devices_page.show_error(str(error))
+            return
+        self.device_detail_page.set_device(device)
+        self.pages.setCurrentWidget(self.device_detail_page)
+        self.devices_button.setChecked(False)
+
+    def change_property(self, did: str, name: str, value: Any) -> None:
+        if self.device_manager is None:
+            return
+        self.device_detail_page.begin_property_update(name)
+
+        def complete(_result: Any) -> None:
+            self.device_detail_page.finish_property_update(name, True)
+            card = self.devices_page.cards.get(did)
+            if card is not None:
+                card.update_device(card.device)
+
+        def fail(error: Exception) -> None:
+            self.device_detail_page.finish_property_update(name, False, str(error))
+
+        self._run_background(
+            self.device_manager.set_property,
+            did,
+            name,
+            value,
+            on_result=complete,
+            on_error=fail,
+        )
+
+    def run_device_action(self, did: str, name: str) -> None:
+        if self.device_manager is None:
+            return
+        self.device_detail_page.begin_action(name)
+
+        def complete(_result: Any) -> None:
+            self.device_detail_page.finish_action(name, True)
+
+        def fail(error: Exception) -> None:
+            self.device_detail_page.finish_action(name, False, str(error))
+
+        self._run_background(
+            self.device_manager.run_action,
+            did,
+            name,
             on_result=complete,
             on_error=fail,
         )

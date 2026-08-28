@@ -21,6 +21,7 @@ from app.ui.widgets.device_card import DeviceCard
 class DevicesPage(QWidget):
     refresh_requested = Signal()
     quick_switch_requested = Signal(str, bool)
+    detail_requested = Signal(str)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -84,6 +85,7 @@ class DevicesPage(QWidget):
         for device in devices:
             card = DeviceCard(device)
             card.quick_switch_requested.connect(self.quick_switch_requested)
+            card.detail_requested.connect(self.detail_requested)
             self._cards[device.did] = card
         self.status_label.setText(f"共 {len(devices)} 台设备")
         self._apply_filter()
@@ -143,4 +145,3 @@ class DevicesPage(QWidget):
             self.grid.addWidget(card, index // columns, index % columns)
         for column in range(columns):
             self.grid.setColumnStretch(column, 1)
-

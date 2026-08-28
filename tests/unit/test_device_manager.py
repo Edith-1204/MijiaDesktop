@@ -50,7 +50,15 @@ class FakeAdapter:
 
     def get_properties(self, request):
         self.calls.append(("get_properties", request))
+        if isinstance(request, list):
+            return [
+                {**item, "code": 0, "value": item["piid"] == 1}
+                for item in request
+            ]
         return {**request, "code": 0, "value": True}
+
+    def get_properties_batch(self, request):
+        return self.get_properties(request)
 
     def set_property(self, did, siid, piid, value):
         self.calls.append(("set_property", did, siid, piid, value))
@@ -120,3 +128,67 @@ def test_numbered_on_capability_is_available_through_on_alias():
     manager.set_property(device.did, "on", True)
 
     assert adapter.calls[-1] == ("set_property", "light-1", 2, 1, True)
+
+
+def test_readable_properties_are_queried_in_batches_and_update_models():
+    adapter = FakeAdapter()
+    manager = DeviceManager(adapter)
+    device = manager.sync_devices()[0]
+
+    refreshed = manager.read_properties_batch({device.did}, batch_size=1)
+
+    property_calls = [call for call in adapter.calls if call[0] == "get_properties"]
+    assert len(property_calls) == 2
+    assert refreshed == {"light-1": {"on": True, "brightness": False}}
+    assert device.primary_state is True
+    assert device.properties["brightness"].value is False
+
+
+def test_batch_refresh_can_select_primary_capability_only():
+    adapter = FakeAdapter()
+    manager = DeviceManager(adapter)
+    device = manager.sync_devices()[0]
+
+    refreshed = manager.read_properties_batch(
+        {device.did},
+        capability_names={"on"},
+    )
+
+    assert refreshed == {"light-1": {"on": True}}
+    assert adapter.calls[-1][1] == [
+        {"did": "light-1", "siid": 2, "piid": 1},
+    ]
+
+
+def test_bad_property_is_isolated_without_losing_successful_batch_values():
+    adapter = FakeAdapter()
+    adapter.get_properties_batch = lambda request: [
+        {**item, "code": 0, "value": True}
+        if item["piid"] == 1
+        else {**item, "code": -704040003}
+        for item in request
+    ]
+    manager = DeviceManager(adapter)
+    device = manager.sync_devices()[0]
+
+    refreshed = manager.read_properties_batch({device.did})
+
+    assert refreshed == {"light-1": {"on": True}}
+    assert device.primary_state is True
+
+
+def test_offline_device_skips_its_remaining_properties_in_current_refresh():
+    adapter = FakeAdapter()
+    calls = []
+
+    def offline(request):
+        calls.append(request)
+        return [{**item, "code": -704042011} for item in request]
+
+    adapter.get_properties_batch = offline
+    manager = DeviceManager(adapter)
+    device = manager.sync_devices()[0]
+
+    assert manager.read_properties_batch({device.did}) == {}
+    assert len(calls) == 1
+    assert device.online is False

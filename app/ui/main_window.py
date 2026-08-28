@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from PySide6.QtCore import QSize, QThreadPool
+from PySide6.QtCore import QSize, QThreadPool, QTimer
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.device_manager import DeviceManager
+from app.core.state_manager import StateManager
 from app.ui.pages.device_detail_page import DeviceDetailPage
 from app.ui.pages.devices_page import DevicesPage
 from app.ui.style import load_stylesheet
@@ -31,13 +32,22 @@ class MainWindow(QMainWindow):
         self,
         device_manager: DeviceManager | None = None,
         *,
+        state_manager: StateManager | None = None,
         auto_refresh: bool = True,
     ) -> None:
         super().__init__()
         self.device_manager = device_manager
+        self.state_manager = state_manager or (
+            StateManager(device_manager) if device_manager is not None else None
+        )
         self.thread_pool = QThreadPool(self)
         self.thread_pool.setMaxThreadCount(1)
         self._active_workers: set[Worker] = set()
+        self._devices_loaded = False
+        self._state_refresh_in_progress = False
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.setInterval(30_000)
+        self.refresh_timer.timeout.connect(self.refresh_primary_states)
 
         self.setWindowTitle("Mijia Desktop")
         self.resize(QSize(1080, 720))
@@ -83,7 +93,7 @@ class MainWindow(QMainWindow):
         root.addWidget(self.pages, 1)
 
         self.devices_button.clicked.connect(lambda: self.pages.setCurrentWidget(self.devices_page))
-        self.devices_page.refresh_requested.connect(self.refresh_devices)
+        self.devices_page.refresh_requested.connect(self.manual_refresh)
         self.devices_page.quick_switch_requested.connect(self.quick_switch)
         self.devices_page.detail_requested.connect(self.open_device_detail)
         self.device_detail_page.back_requested.connect(self.show_devices_page)
@@ -102,9 +112,60 @@ class MainWindow(QMainWindow):
         self.devices_page.set_loading(True)
         self._run_background(
             self.device_manager.sync_devices,
-            on_result=self.devices_page.set_devices,
+            on_result=self._on_devices_synced,
             on_error=lambda error: self.devices_page.show_error(str(error)),
             on_finished=lambda: self.devices_page.set_loading(False),
+        )
+
+    def _on_devices_synced(self, devices) -> None:
+        self._devices_loaded = True
+        self.devices_page.set_devices(devices)
+        if self.state_manager is not None:
+            self.state_manager.seed(devices)
+            self.refresh_timer.start()
+
+    def manual_refresh(self) -> None:
+        if self._devices_loaded and self.state_manager is not None:
+            self.refresh_primary_states()
+        else:
+            self.refresh_devices()
+
+    def refresh_primary_states(self) -> None:
+        self.refresh_states(capability_names={"on"})
+
+    def refresh_states(
+        self,
+        dids: set[str] | None = None,
+        capability_names: set[str] | None = None,
+    ) -> None:
+        if self.state_manager is None or self._state_refresh_in_progress:
+            return
+        self._state_refresh_in_progress = True
+        self.devices_page.set_state_loading(True)
+
+        def complete(_snapshot: Any) -> None:
+            if self.device_manager is None:
+                return
+            devices = self.device_manager.devices
+            self.devices_page.update_states(devices)
+            if self.device_detail_page.device is not None:
+                active = self.device_manager.get_device(self.device_detail_page.device.did)
+                self.device_detail_page.update_state(active)
+
+        def fail(error: Exception) -> None:
+            self.devices_page.show_refresh_error(str(error))
+
+        def finished() -> None:
+            self._state_refresh_in_progress = False
+            self.devices_page.set_state_loading(False)
+
+        self._run_background(
+            self.state_manager.refresh,
+            dids,
+            capability_names,
+            on_result=complete,
+            on_error=fail,
+            on_finished=finished,
         )
 
     def quick_switch(self, did: str, desired_state: bool) -> None:
@@ -114,6 +175,7 @@ class MainWindow(QMainWindow):
 
         def complete(_result: Any) -> None:
             self.devices_page.finish_quick_switch(did, success=True)
+            self.refresh_states({did}, {"on"})
 
         def fail(error: Exception) -> None:
             self.devices_page.finish_quick_switch(did, success=False, error_message=str(error))
@@ -142,6 +204,7 @@ class MainWindow(QMainWindow):
         self.device_detail_page.set_device(device)
         self.pages.setCurrentWidget(self.device_detail_page)
         self.devices_button.setChecked(False)
+        self.refresh_states({did})
 
     def change_property(self, did: str, name: str, value: Any) -> None:
         if self.device_manager is None:
@@ -153,6 +216,7 @@ class MainWindow(QMainWindow):
             card = self.devices_page.cards.get(did)
             if card is not None:
                 card.update_device(card.device)
+            self.refresh_states({did}, {name})
 
         def fail(error: Exception) -> None:
             self.device_detail_page.finish_property_update(name, False, str(error))
@@ -173,6 +237,7 @@ class MainWindow(QMainWindow):
 
         def complete(_result: Any) -> None:
             self.device_detail_page.finish_action(name, True)
+            self.refresh_states({did})
 
         def fail(error: Exception) -> None:
             self.device_detail_page.finish_action(name, False, str(error))

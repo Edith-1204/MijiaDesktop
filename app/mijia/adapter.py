@@ -174,6 +174,18 @@ class MijiaAdapter:
         except Exception as error:
             raise self._translate(error, PropertyReadError, "读取设备属性失败") from error
 
+    def get_properties_batch(
+        self,
+        requests: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Read a batch while preserving per-property result codes for isolation."""
+        try:
+            result = self._api.get_devices_prop(requests)
+            self._persist_credentials()
+            return result if isinstance(result, list) else [result]
+        except Exception as error:
+            raise self._translate(error, PropertyReadError, "批量读取设备属性失败") from error
+
     def set_property(self, did: str, siid: int, piid: int, value: Any) -> dict[str, Any]:
         """Set one MIoT property by its stable numeric identifiers."""
         request = {"did": did, "siid": siid, "piid": piid, "value": value}

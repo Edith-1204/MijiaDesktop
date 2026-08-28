@@ -112,6 +112,21 @@ class DeviceDetailPage(QWidget):
             self.generic_control.begin_property_update(name)
         self.summary_label.setText(f"正在设置 {name}…")
 
+    def update_state(self, device: BaseDevice) -> None:
+        """Apply refreshed values without rebuilding the current detail page."""
+        if self.device is None or self.device.did != device.did:
+            return
+        self.device = device
+        status = "在线" if device.online else "离线/未知"
+        self.summary_label.setText(f"{device.device_type.value} · {status} · 状态已刷新")
+        for control in (self.specialized_control, self.generic_control):
+            if control is None:
+                continue
+            for name, widget in control.property_widgets.items():
+                capability = device.capability(name)
+                if capability is not None:
+                    widget.finish(True, capability.value)
+
     def finish_property_update(
         self,
         name: str,

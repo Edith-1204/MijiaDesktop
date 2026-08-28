@@ -31,6 +31,8 @@ class FakeAPI:
 
     def get_devices_prop(self, data):
         self.calls.append(("get_devices_prop", data))
+        if isinstance(data, list):
+            return [{**item, "code": 0, "value": False} for item in data]
         return {**data, "code": 0, "value": False}
 
     def set_devices_prop(self, data):
@@ -126,3 +128,18 @@ def test_offline_result_becomes_device_offline_error():
 
     with pytest.raises(DeviceOfflineError):
         adapter.get_properties({"did": "device-1", "siid": 2, "piid": 1})
+
+
+def test_batch_property_read_preserves_individual_error_results():
+    api = FakeAPI()
+    api.get_devices_prop = lambda data: [
+        {**data[0], "code": 0, "value": True},
+        {**data[1], "code": -704040003},
+    ]
+    adapter = MijiaAdapter(api_client=api)
+    requests = [
+        {"did": "device-1", "siid": 2, "piid": 1},
+        {"did": "device-1", "siid": 2, "piid": 2},
+    ]
+
+    assert adapter.get_properties_batch(requests)[1]["code"] == -704040003

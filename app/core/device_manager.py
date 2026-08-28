@@ -11,13 +11,14 @@ from app.core.exceptions import (
     PropertyWriteError,
     UnsupportedDeviceError,
 )
-from app.mijia.adapter import MijiaAdapter
+from app.mijia.adapter import OFFLINE_CODES, MijiaAdapter
 from app.mijia.classifier import DeviceClassifier
 from app.mijia.parser import (
     extract_property_values,
     parse_actions,
     parse_capabilities,
 )
+from app.models.capability import DeviceCapability
 from app.models.device import BaseDevice
 from app.utils.logger import get_logger
 
@@ -113,6 +114,98 @@ class DeviceManager:
             device.primary_state = value
         return value
 
+    def read_properties_batch(
+        self,
+        dids: set[str] | None = None,
+        *,
+        capability_names: set[str] | None = None,
+        batch_size: int = 50,
+    ) -> dict[str, dict[str, Any]]:
+        """Read all readable capabilities in bounded cloud batches."""
+        if batch_size < 1:
+            raise ValueError("batch_size must be at least 1")
+        requested: list[tuple[BaseDevice, DeviceCapability]] = []
+        for device in self.devices:
+            if dids is not None and device.did not in dids:
+                continue
+            requested.extend(
+                (device, capability)
+                for capability in device.properties.values()
+                if capability.readable
+                and capability.siid
+                and capability.piid
+                and (
+                    capability_names is None
+                    or any(
+                        device.capability(name) is capability
+                        for name in capability_names
+                    )
+                )
+            )
+
+        refreshed: dict[str, dict[str, Any]] = {}
+        offline_dids: set[str] = set()
+        for offset in range(0, len(requested), batch_size):
+            group = requested[offset : offset + batch_size]
+            partial = self._read_property_group(group, offline_dids)
+            for did, values in partial.items():
+                refreshed.setdefault(did, {}).update(values)
+        return refreshed
+
+    def _read_property_group(
+        self,
+        group: list[tuple[BaseDevice, DeviceCapability]],
+        offline_dids: set[str],
+    ) -> dict[str, dict[str, Any]]:
+        group = [item for item in group if item[0].did not in offline_dids]
+        if not group:
+            return {}
+        payload = [
+            {"did": device.did, "siid": capability.siid, "piid": capability.piid}
+            for device, capability in group
+        ]
+        batch_reader = getattr(self._adapter, "get_properties_batch", None)
+        if batch_reader is None:
+            raw_results = self._adapter.get_properties(payload)
+            results = raw_results if isinstance(raw_results, list) else [raw_results]
+        else:
+            results = batch_reader(payload)
+        by_key = {
+            (device.did, capability.siid, capability.piid): (device, capability)
+            for device, capability in group
+        }
+        refreshed: dict[str, dict[str, Any]] = {}
+        for index, result in enumerate(results):
+            fallback = group[index] if index < len(group) else None
+            key = (
+                str(result.get("did") or ""),
+                int(result.get("siid") or 0),
+                int(result.get("piid") or 0),
+            )
+            matched = by_key.get(key, fallback)
+            if matched is None:
+                continue
+            device, capability = matched
+            code = int(result.get("code", 0))
+            if code not in (0, 1):
+                if code in OFFLINE_CODES:
+                    device.online = False
+                    offline_dids.add(device.did)
+                logger.warning(
+                    "Skipped unreadable property: device=%s property=%s code=%d",
+                    device.name,
+                    capability.name,
+                    code,
+                )
+                continue
+            value = result.get("value")
+            device.online = True
+            capability.value = value
+            refreshed.setdefault(device.did, {})[capability.name] = value
+            if capability.name == "on" or capability.name.startswith("on-"):
+                device.primary_state = value
+        return refreshed
+
     def set_property(self, did: str, capability_name: str, value: Any) -> Any:
         device = self.get_device(did)
         capability = device.capability(capability_name)
@@ -150,4 +243,3 @@ class DeviceManager:
                 logger.warning("Device spec unavailable for model=%s: %s", model, error)
                 self._spec_cache[model] = {}
         return self._spec_cache[model]
-

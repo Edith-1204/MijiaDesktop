@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtWidgets import (
     QGridLayout,
@@ -98,6 +100,23 @@ class DevicesPage(QWidget):
 
     def show_error(self, message: str) -> None:
         self.status_label.setText(f"同步失败：{message}")
+
+    def set_state_loading(self, loading: bool) -> None:
+        self.refresh_button.setEnabled(not loading)
+        self.refresh_button.setText("正在刷新…" if loading else "刷新")
+        if loading:
+            self.status_label.setText("正在刷新设备状态…")
+
+    def update_states(self, devices: tuple[BaseDevice, ...]) -> None:
+        self._devices = devices
+        for device in devices:
+            card = self._cards.get(device.did)
+            if card is not None:
+                card.update_device(device)
+        self.status_label.setText(f"状态已刷新 · {datetime.now():%H:%M:%S}")
+
+    def show_refresh_error(self, message: str) -> None:
+        self.status_label.setText(f"状态刷新失败：{message}")
 
     def begin_quick_switch(self, did: str, desired_state: bool) -> None:
         card = self._cards.get(did)

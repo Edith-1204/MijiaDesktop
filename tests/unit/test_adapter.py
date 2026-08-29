@@ -147,8 +147,27 @@ def test_invalid_qr_response_is_rejected(tmp_path):
         qr_directory=tmp_path,
     )
 
-    with pytest.raises(Exception, match="无法生成米家登录二维码"):
+    with pytest.raises(Exception, match="二维码图片无效"):
         adapter.begin_login()
+
+
+def test_login_error_distinguishes_network_failures(tmp_path):
+    def fail(_url):
+        class ConnectionError(Exception):
+            pass
+
+        raise ConnectionError("URL and ticket must not be exposed")
+
+    adapter = MijiaAdapter(
+        api_client=FakeAPI(),
+        qr_fetcher=fail,
+        qr_directory=tmp_path,
+    )
+
+    with pytest.raises(Exception, match="无法连接小米登录服务") as caught:
+        adapter.begin_login()
+
+    assert "ticket" not in str(caught.value)
 
 
 def test_adapter_loads_device_spec_through_boundary():

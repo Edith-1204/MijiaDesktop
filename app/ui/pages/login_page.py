@@ -38,8 +38,23 @@ class LoginPage(QWidget):
         self.login_button.setEnabled(not loading)
         self.login_button.setText("正在登录…" if loading else "重新生成二维码")
 
-    def show_qr(self, path: Path) -> None:
-        pixmap = QPixmap(str(path))
+    def prepare_login(self) -> None:
+        """Clear stale visual state before starting a new login attempt."""
+        self.qr_label.clear()
+        self.qr_label.setText("正在生成二维码…")
+        self.status_label.setText("正在连接小米登录服务…")
+
+    def show_qr(self, path: Path) -> bool:
+        """Load PNG bytes immediately so the UI does not depend on temp-file lifetime."""
+        try:
+            image_data = path.read_bytes()
+        except OSError:
+            self.show_error("无法读取登录二维码，请重新生成")
+            return False
+        pixmap = QPixmap()
+        if not pixmap.loadFromData(image_data, "PNG") or pixmap.isNull():
+            self.show_error("二维码图片加载失败，请重新生成")
+            return False
         self.qr_label.setPixmap(
             pixmap.scaled(
                 260,
@@ -49,6 +64,7 @@ class LoginPage(QWidget):
             )
         )
         self.status_label.setText("请使用米家 APP 扫码确认")
+        return True
 
     def show_error(self, message: str) -> None:
         self.status_label.setText(f"登录失败：{message}")

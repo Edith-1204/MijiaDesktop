@@ -65,6 +65,8 @@ class MainWindow(QMainWindow):
         self._active_workers: set[Worker] = set()
         self._devices_loaded = False
         self._state_refresh_in_progress = False
+        self._login_attempt = 0
+        self._login_in_progress = False
         self._allow_exit = False
         self._return_page: QWidget | None = None
         self.refresh_timer = QTimer(self)
@@ -410,6 +412,7 @@ class MainWindow(QMainWindow):
         except Exception as error:
             self.settings_page.show_status(f"无法清除登录状态：{error}")
             return
+        self._invalidate_login_attempt()
         self.begin_login()
 
     def logout(self) -> None:
@@ -420,6 +423,7 @@ class MainWindow(QMainWindow):
         except Exception as error:
             self.settings_page.show_status(f"退出账号失败：{error}")
             return
+        self._invalidate_login_attempt()
         self.refresh_timer.stop()
         self._devices_loaded = False
         self.devices_page.set_devices(())
@@ -430,33 +434,53 @@ class MainWindow(QMainWindow):
         self.login_page.set_loading(False)
 
     def begin_login(self) -> None:
-        if self.account_manager is None:
+        if self.account_manager is None or self._login_in_progress:
             return
+        self._login_attempt += 1
+        attempt = self._login_attempt
+        self._login_in_progress = True
         self.pages.setCurrentWidget(self.login_page)
         self._set_navigation(None)
         self.login_page.set_loading(True)
-        self.login_page.status_label.setText("正在准备登录…")
+        self.login_page.prepare_login()
         self._run_background(
             self.account_manager.begin_login,
-            on_result=self._on_login_started,
-            on_error=self.login_page.show_error,
+            on_result=lambda qr_path: self._on_login_started(attempt, qr_path),
+            on_error=lambda error: self._on_login_failed(attempt, error),
         )
 
-    def _on_login_started(self, qr_path) -> None:
-        if qr_path is None:
-            self._on_login_complete(None)
+    def _on_login_started(self, attempt: int, qr_path) -> None:
+        if attempt != self._login_attempt:
             return
-        self.login_page.show_qr(qr_path)
+        if qr_path is None:
+            self._on_login_complete(attempt, None)
+            return
+        if not self.login_page.show_qr(qr_path):
+            self._login_in_progress = False
+            return
         self._run_background(
             self.account_manager.complete_login,
-            on_result=self._on_login_complete,
-            on_error=self.login_page.show_error,
+            on_result=lambda result: self._on_login_complete(attempt, result),
+            on_error=lambda error: self._on_login_failed(attempt, error),
         )
 
-    def _on_login_complete(self, _result: Any) -> None:
+    def _on_login_complete(self, attempt: int, _result: Any) -> None:
+        if attempt != self._login_attempt:
+            return
+        self._login_in_progress = False
         self.login_page.set_loading(False)
         self.show_devices_page()
         self.refresh_devices()
+
+    def _on_login_failed(self, attempt: int, error: Exception) -> None:
+        if attempt != self._login_attempt:
+            return
+        self._login_in_progress = False
+        self.login_page.show_error(str(error))
+
+    def _invalidate_login_attempt(self) -> None:
+        self._login_attempt += 1
+        self._login_in_progress = False
 
     def change_favorite(self, did: str, favorite: bool) -> None:
         if self.device_manager is None:

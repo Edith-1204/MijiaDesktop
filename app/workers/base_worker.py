@@ -34,10 +34,15 @@ class Worker(QRunnable):
         try:
             result = self.function(*self.args, **self.kwargs)
         except Exception as error:
-            logger.exception("Background operation failed")
+            function_name = getattr(self.function, "__qualname__", type(self.function).__name__)
+            logger.error(
+                "Background operation failed: function=%s error_type=%s message=%s",
+                function_name,
+                type(error).__name__,
+                error,
+            )
             self.signals.error.emit(error)
         else:
             self.signals.result.emit(result)
         finally:
             self.signals.finished.emit()
-

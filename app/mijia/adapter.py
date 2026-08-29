@@ -62,11 +62,12 @@ def _default_spec_loader(model: str, cache_path: Path) -> dict[str, Any]:
 def _default_qr_fetcher(url: str) -> bytes:
     import requests
 
-    response = requests.get(url, timeout=15)
+    response = requests.get(
+        url,
+        headers={"Accept": "image/png,image/*;q=0.9,*/*;q=0.1"},
+        timeout=15,
+    )
     response.raise_for_status()
-    content_type = response.headers.get("content-type", "").lower()
-    if "image/png" not in content_type:
-        raise ValueError("Xiaomi QR endpoint did not return a PNG image")
     return response.content
 
 
@@ -96,6 +97,9 @@ class MijiaAdapter:
             self._api = api_factory(auth_path)
         else:
             self._api = api_client
+        self._qr_directory_uses_credentials = (
+            qr_directory is None and self._credential_store is not None
+        )
         self._qr_directory = qr_directory or (
             self._credential_store.working_directory
             if self._credential_store is not None
@@ -104,6 +108,8 @@ class MijiaAdapter:
 
     def begin_login(self) -> Path | None:
         """Fetch a QR code into private temporary storage without waiting for a scan."""
+        self._remove_qr_code()
+        self._pending_login_data = None
         try:
             login_data = self._api._get_qr_login_data()
             if login_data.get("refreshed"):
@@ -122,7 +128,9 @@ class MijiaAdapter:
             logger.info("Mijia login QR code is ready at %s", qr_path)
             return qr_path
         except Exception as error:
-            raise self._translate(error, AuthenticationError, "无法生成米家登录二维码") from error
+            error_type = type(error).__name__
+            logger.warning("QR login preparation failed: error_type=%s", error_type)
+            raise self._translate_login_error(error) from None
 
     def complete_login(self) -> None:
         """Wait for the user to scan the QR code prepared by :meth:`begin_login`."""
@@ -242,7 +250,10 @@ class MijiaAdapter:
             self._credential_store.clear()
             if self._api_factory is not None:
                 try:
-                    self._api = self._api_factory(self._credential_store.prepare())
+                    auth_path = self._credential_store.prepare()
+                    self._api = self._api_factory(auth_path)
+                    if self._qr_directory_uses_credentials:
+                        self._qr_directory = auth_path.parent
                 except Exception as error:
                     raise AuthenticationError("无法重置米家登录状态") from error
 
@@ -261,6 +272,22 @@ class MijiaAdapter:
     def _persist_credentials(self) -> None:
         if self._credential_store is not None:
             self._credential_store.persist()
+
+    @staticmethod
+    def _translate_login_error(error: Exception) -> AuthenticationError:
+        """Return an actionable message without exposing QR URLs or auth values."""
+        class_names = {item.__name__ for item in type(error).__mro__}
+        if class_names.intersection(
+            {"ConnectionError", "Timeout", "RequestException", "HTTPError", "SSLError"}
+        ):
+            return AuthenticationError("无法连接小米登录服务，请检查网络后重试")
+        if isinstance(error, KeyError):
+            return AuthenticationError("小米登录服务返回的数据不完整，请稍后重试")
+        if isinstance(error, ValueError):
+            return AuthenticationError("小米登录服务返回的二维码图片无效，请稍后重试")
+        if isinstance(error, OSError):
+            return AuthenticationError("无法保存登录二维码，请检查临时目录权限")
+        return AuthenticationError(f"无法生成米家登录二维码（{type(error).__name__}）")
 
     @staticmethod
     def _ensure_success(

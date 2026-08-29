@@ -1,9 +1,11 @@
 from PySide6.QtCore import QSettings
+from PySide6.QtGui import QColor, QImage
 
 from app.core.settings_manager import SettingsManager
 from app.models.capability import DeviceCapability
 from app.models.device import BaseDevice, DeviceType
 from app.ui.main_window import MainWindow
+from app.ui.pages.login_page import LoginPage
 from app.ui.pages.favorites_page import FavoritesPage
 from app.ui.pages.devices_page import DevicesPage
 from app.ui.widgets.device_card import DeviceCard
@@ -315,3 +317,41 @@ def test_main_window_starts_on_login_page_without_stored_credentials(qtbot):
     qtbot.addWidget(window)
 
     assert window.pages.currentWidget() is window.login_page
+
+
+def test_login_page_loads_qr_bytes_and_rejects_invalid_images(qtbot, tmp_path):
+    page = LoginPage()
+    qtbot.addWidget(page)
+    valid_path = tmp_path / "valid.png"
+    image = QImage(16, 16, QImage.Format.Format_RGB32)
+    image.fill(QColor("white"))
+    assert image.save(str(valid_path), "PNG")
+
+    assert page.show_qr(valid_path)
+    assert page.qr_label.pixmap() is not None
+    assert not page.qr_label.pixmap().isNull()
+
+    invalid_path = tmp_path / "invalid.png"
+    invalid_path.write_bytes(b"not-a-png")
+    assert not page.show_qr(invalid_path)
+    assert "二维码图片加载失败" in page.status_label.text()
+
+
+def test_main_window_blocks_duplicate_login_and_ignores_stale_failure(qtbot):
+    account = FakeAccountManager()
+    window = MainWindow(
+        FakeManager(),
+        account_manager=account,
+        auto_refresh=False,
+    )
+    qtbot.addWidget(window)
+    window._login_in_progress = True
+    window._login_attempt = 2
+    original_status = window.login_page.status_label.text()
+
+    window.begin_login()
+    window._on_login_failed(1, RuntimeError("stale"))
+
+    assert account.calls == []
+    assert window._login_in_progress
+    assert window.login_page.status_label.text() == original_status

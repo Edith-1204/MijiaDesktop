@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app import __version__
 from app.application import load_application_icon
 from app.core.account_manager import AccountManager
 from app.core.device_manager import DeviceManager
@@ -123,7 +124,7 @@ class MainWindow(QMainWindow):
         self.settings_button.setObjectName("navButton")
         self.settings_button.setCheckable(True)
         sidebar_layout.addWidget(self.settings_button)
-        version = QLabel("V0.1 Alpha")
+        version = QLabel(f"V{__version__}")
         version.setObjectName("brandSubtitle")
         sidebar_layout.addWidget(version)
         root.addWidget(sidebar)

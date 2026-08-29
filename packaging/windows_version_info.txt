@@ -1,7 +1,7 @@
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(0, 1, 0, 0),
-    prodvers=(0, 1, 0, 0),
+    filevers=(1, 0, 0, 0),
+    prodvers=(1, 0, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -15,12 +15,12 @@ VSVersionInfo(
         u'080404B0',
         [StringStruct(u'CompanyName', u'Mijia Desktop contributors'),
          StringStruct(u'FileDescription', u'Mijia Desktop - 米家桌面控制中心'),
-         StringStruct(u'FileVersion', u'0.1.0-alpha'),
+         StringStruct(u'FileVersion', u'1.0.0'),
          StringStruct(u'InternalName', u'MijiaDesktop'),
          StringStruct(u'LegalCopyright', u'GPL-3.0-or-later'),
-         StringStruct(u'OriginalFilename', u'MijiaDesktop-0.1.0-alpha.exe'),
+         StringStruct(u'OriginalFilename', u'MijiaDesktop-1.0.0.exe'),
          StringStruct(u'ProductName', u'Mijia Desktop'),
-         StringStruct(u'ProductVersion', u'0.1.0-alpha')])
+         StringStruct(u'ProductVersion', u'1.0.0')])
     ]),
     VarFileInfo([VarStruct(u'Translation', [2052, 1200])])
   ]

@@ -56,7 +56,7 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "PyInstaller build failed with exit code $LASTEXITCODE"
     }
-    Write-Host "Built: $projectRoot\dist\MijiaDesktop-0.1.0-alpha.exe"
+    Write-Host "Built: $projectRoot\dist\MijiaDesktop-1.0.0.exe"
 }
 finally {
     $env:PATH = $originalPath

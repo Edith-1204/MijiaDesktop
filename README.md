@@ -5,8 +5,8 @@ Mijia Desktop（米家桌面控制中心）是面向 Windows 11 的开源米家�
 项目当前按《Mijia Desktop 项目计划书 V1.0》分阶段开发。Phase 0 提供可运行的
 PySide6 工程骨架；Phase 1 提供经 `MijiaAdapter` 隔离的命令行访问链路；Phase 2
 建立统一设备模型；Phase 3–8 已完成设备总览、通用/专用控制、状态管理、收藏与托盘，
-以及完整设置页面；Phase 9 已完成 Windows 单文件打包与本机验收。当前版本为
-Phase 10 的 `v0.1.0-alpha`。
+以及完整设置页面；Phase 9 已完成 Windows 单文件打包与本机验收，Phase 10 已完成
+正式发布准备。当前稳定版本为 `v1.0.0`。
 
 ## 环境要求
 
@@ -102,9 +102,9 @@ Action 按钮，因此未知设备无需专用界面也能展示和控制大部�
 状态快照。
 
 应用默认每 30 秒批量刷新一次设备主状态，设备页支持手动刷新；打开详情页时刷新
-该设备全部属性，属性写入后只刷新对应属性，Action 成功后立即刷新对应设备。失败
-属性会被隔离，不影响同批其他状态。定时器和 UI 只负责调度，网络查询始终由
-`Worker` 执行。
+该设备全部属性。快速开关、属性写入和 Action 成功后会等待 300 毫秒，再完整刷新
+对应设备；重叠刷新会合并或排队。失败属性会被隔离，不影响同批其他状态。定时器和
+UI 只负责调度，网络查询始终由 `Worker` 执行。
 
 ## Phase 7 Favorites and Tray
 
@@ -138,12 +138,12 @@ py -3.12 -m venv .venv-packaging
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 ```
 
-构建产物位于 `dist\MijiaDesktop-0.1.0-alpha.exe`。该程序为无控制台窗口的单文件
+构建产物位于 `dist\MijiaDesktop-1.0.0.exe`。该程序为无控制台窗口的单文件
 EXE，包含 PySide6、mijiaAPI、Windows DPAPI 依赖、应用样式资源和版本信息。
 
-## Phase 10 Alpha Release
+## Phase 10 Stable Release
 
-Alpha 发布包包含 EXE、README、LICENSE、发布说明、已知问题和支持设备说明。发布前
+正式发布包包含 EXE、README、LICENSE、发布说明、已知问题和支持设备说明。发布前
 运行完整自动化测试，并为压缩包生成 SHA-256 校验值。
 
 - [发布说明](RELEASE_NOTES.md)

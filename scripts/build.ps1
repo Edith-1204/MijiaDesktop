@@ -41,13 +41,16 @@ if ($null -eq $pythonExecutable) {
 Push-Location $projectRoot
 $originalPath = $env:PATH
 try {
-    # Build tools may prepend unrelated native-library folders to PATH. In
-    # particular, Poppler's ICU DLLs have the same names as the Windows ICU
-    # shims used by Qt, but expose a different ABI. Do not let PyInstaller
-    # mistake those toolchain DLLs for application dependencies.
-    $env:PATH = (($originalPath -split ";") | Where-Object {
-        $_ -and $_ -notmatch "[\\/]\.cache[\\/]codex-runtimes[\\/]"
-    }) -join ";"
+    # Keep third-party applications and build toolchains out of PyInstaller's
+    # DLL resolver. Same-named OpenSSL/ICU libraries from those folders can be
+    # ABI-incompatible with Python and Qt.
+    $env:PATH = @(
+        (Split-Path -Parent $pythonExecutable)
+        (Join-Path $env:SystemRoot "System32")
+        $env:SystemRoot
+        (Join-Path $env:SystemRoot "System32\Wbem")
+        (Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0")
+    ) -join ";"
 
     & $pythonExecutable -m PyInstaller --noconfirm --clean MijiaDesktop.spec
     if ($LASTEXITCODE -ne 0) {

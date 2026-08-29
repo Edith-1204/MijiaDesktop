@@ -36,6 +36,9 @@ from app.ui.style import load_stylesheet
 from app.workers.base_worker import Worker
 
 
+POST_OPERATION_REFRESH_DELAY_MS = 300
+
+
 class MainWindow(QMainWindow):
     """Main navigation shell; all network work is delegated to Worker."""
 
@@ -65,6 +68,7 @@ class MainWindow(QMainWindow):
         self._active_workers: set[Worker] = set()
         self._devices_loaded = False
         self._state_refresh_in_progress = False
+        self._pending_operation_refresh_dids: set[str] = set()
         self._login_attempt = 0
         self._login_in_progress = False
         self._allow_exit = False
@@ -281,6 +285,7 @@ class MainWindow(QMainWindow):
             self._state_refresh_in_progress = False
             self.devices_page.set_state_loading(False)
             self.favorites_page.set_state_loading(False)
+            self._flush_operation_refreshes()
 
         self._run_background(
             self.state_manager.refresh,
@@ -301,7 +306,7 @@ class MainWindow(QMainWindow):
             self.devices_page.finish_quick_switch(did, success=True)
             self.favorites_page.finish_quick_switch(did, success=True)
             self._update_tray(self.device_manager.devices)
-            self.refresh_states({did}, {"on"})
+            self._schedule_operation_refresh(did)
 
         def fail(error: Exception) -> None:
             self.devices_page.finish_quick_switch(did, success=False, error_message=str(error))
@@ -505,7 +510,7 @@ class MainWindow(QMainWindow):
             card = self.devices_page.cards.get(did)
             if card is not None:
                 card.update_device(card.device)
-            self.refresh_states({did}, {name})
+            self._schedule_operation_refresh(did)
 
         def fail(error: Exception) -> None:
             self.device_detail_page.finish_property_update(name, False, str(error))
@@ -526,7 +531,7 @@ class MainWindow(QMainWindow):
 
         def complete(_result: Any) -> None:
             self.device_detail_page.finish_action(name, True)
-            self.refresh_states({did})
+            self._schedule_operation_refresh(did)
 
         def fail(error: Exception) -> None:
             self.device_detail_page.finish_action(name, False, str(error))
@@ -538,6 +543,24 @@ class MainWindow(QMainWindow):
             on_result=complete,
             on_error=fail,
         )
+
+    def _schedule_operation_refresh(self, did: str) -> None:
+        """Refresh the operated device after cloud state has had time to settle."""
+        QTimer.singleShot(
+            POST_OPERATION_REFRESH_DELAY_MS,
+            lambda: self._queue_operation_refresh(did),
+        )
+
+    def _queue_operation_refresh(self, did: str) -> None:
+        self._pending_operation_refresh_dids.add(did)
+        self._flush_operation_refreshes()
+
+    def _flush_operation_refreshes(self) -> None:
+        if self._state_refresh_in_progress or not self._pending_operation_refresh_dids:
+            return
+        dids = set(self._pending_operation_refresh_dids)
+        self._pending_operation_refresh_dids.clear()
+        self.refresh_states(dids)
 
     def _run_background(
         self,

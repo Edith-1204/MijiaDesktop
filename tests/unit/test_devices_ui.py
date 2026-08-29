@@ -136,7 +136,7 @@ def test_main_window_sync_and_switch_use_manager_in_background(qtbot):
     assert manager.calls == [
         ("sync_devices",),
         ("set_property", "light-1", "on", True),
-        ("read_properties_batch", {"light-1"}, {"on"}),
+        ("read_properties_batch", {"light-1"}, None),
     ]
 
 
@@ -155,7 +155,7 @@ def test_main_window_opens_detail_and_changes_generic_property(qtbot):
 
     assert manager.calls[-2:] == [
         ("set_property", "light-1", "on", True),
-        ("read_properties_batch", {"light-1"}, {"on"}),
+        ("read_properties_batch", {"light-1"}, None),
     ]
 
 

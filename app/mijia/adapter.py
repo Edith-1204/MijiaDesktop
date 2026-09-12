@@ -38,7 +38,9 @@ class MijiaAPIClient(Protocol):
 
     def _complete_qr_login(self, login_data: dict[str, Any]) -> dict[str, Any]: ...
 
-    def get_devices_list(self) -> list[dict[str, Any]]: ...
+    def get_homes_list(self) -> list[dict[str, Any]]: ...
+
+    def get_devices_list(self, home_id: str | None = None) -> list[dict[str, Any]]: ...
 
     def get_devices_prop(self, data: dict[str, Any] | list[dict[str, Any]]) -> Any: ...
 
@@ -167,11 +169,35 @@ class MijiaAdapter:
         return self._credential_store is None or self._credential_store.exists
 
     def get_devices(self) -> list[dict[str, Any]]:
-        """Return all devices visible to the authenticated account."""
+        """Return all devices annotated with their home and room location."""
         try:
-            devices = self._api.get_devices_list()
+            homes = self._api.get_homes_list()
+            devices: list[dict[str, Any]] = []
+            for home in homes:
+                home_id = str(home.get("id") or "")
+                home_name = str(home.get("name") or "未命名家庭")
+                rooms = list(home.get("roomlist") or [])
+                room_by_did = {
+                    str(did): room
+                    for room in rooms
+                    for did in (room.get("dids") or [])
+                }
+                for raw_device in self._api.get_devices_list(home_id):
+                    device = dict(raw_device)
+                    room = room_by_did.get(str(device.get("did") or ""))
+                    device["home_id"] = home_id
+                    device["home_name"] = home_name
+                    device["room_id"] = str(room.get("id") or "") if room else ""
+                    device["room_name"] = (
+                        str(room.get("name") or "未命名房间") if room else ""
+                    )
+                    devices.append(device)
             self._persist_credentials()
-            logger.info("Loaded %d Mijia devices", len(devices))
+            logger.info(
+                "Loaded %d Mijia devices across %d homes",
+                len(devices),
+                len(homes),
+            )
             return devices
         except Exception as error:
             raise self._translate(error, NetworkError, "获取米家设备列表失败") from error

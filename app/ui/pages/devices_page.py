@@ -26,11 +26,13 @@ class DevicesPage(QWidget):
     detail_requested = Signal(str)
     favorite_requested = Signal(str, bool)
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent=None, *, group_by_room: bool = True) -> None:
         super().__init__(parent)
         self.setObjectName("devicesPage")
+        self._group_by_room = group_by_room
         self._devices: tuple[BaseDevice, ...] = ()
         self._cards: dict[str, DeviceCard] = {}
+        self._room_headers: dict[tuple[str, str], QLabel] = {}
 
         root = QVBoxLayout(self)
         root.setContentsMargins(28, 24, 28, 24)
@@ -84,6 +86,10 @@ class DevicesPage(QWidget):
     def cards(self) -> dict[str, DeviceCard]:
         return dict(self._cards)
 
+    @property
+    def room_headers(self) -> dict[tuple[str, str], QLabel]:
+        return dict(self._room_headers)
+
     def set_devices(self, devices: tuple[BaseDevice, ...]) -> None:
         self._devices = devices
         existing = self._cards
@@ -102,6 +108,11 @@ class DevicesPage(QWidget):
             card.hide()
             card.deleteLater()
         self._cards = updated
+        valid_room_keys = {self._room_key(device) for device in devices}
+        for key in set(self._room_headers) - valid_room_keys:
+            header = self._room_headers.pop(key)
+            header.hide()
+            header.deleteLater()
         self.status_label.setText(f"共 {len(devices)} 台设备")
         self._apply_filter()
 
@@ -136,7 +147,13 @@ class DevicesPage(QWidget):
         if card is not None:
             card.set_pending(True, desired_state)
 
-    def finish_quick_switch(self, did: str, *, success: bool, error_message: str | None = None) -> None:
+    def finish_quick_switch(
+        self,
+        did: str,
+        *,
+        success: bool,
+        error_message: str | None = None,
+    ) -> None:
         card = self._cards.get(did)
         if card is None:
             return
@@ -156,7 +173,11 @@ class DevicesPage(QWidget):
         visible_cards = []
         for device in self._devices:
             card = self._cards[device.did]
-            matches = not query or query in device.name.casefold() or query in device.model.casefold()
+            matches = (
+                not query
+                or query in device.name.casefold()
+                or query in device.model.casefold()
+            )
             card.setVisible(matches)
             if matches:
                 visible_cards.append(card)
@@ -165,15 +186,66 @@ class DevicesPage(QWidget):
         self._relayout_cards(visible_cards)
 
     def _relayout_cards(self, cards: list[DeviceCard] | None = None) -> None:
-        cards = cards if cards is not None else [card for card in self._cards.values() if not card.isHidden()]
+        cards = cards if cards is not None else [
+            card for card in self._cards.values() if not card.isHidden()
+        ]
         while self.grid.count():
             self.grid.takeAt(0)
+        for header in self._room_headers.values():
+            header.hide()
         if not cards:
             self.grid.addWidget(self.empty_label, 0, 0)
             return
         available_width = max(self.scroll_area.viewport().width() - 8, 250)
         columns = max(1, available_width // 280)
-        for index, card in enumerate(cards):
-            self.grid.addWidget(card, index // columns, index % columns)
+        if not self._group_by_room:
+            for index, card in enumerate(cards):
+                self.grid.addWidget(card, index // columns, index % columns)
+            for column in range(columns):
+                self.grid.setColumnStretch(column, 1)
+            return
+
+        groups: dict[tuple[str, str], list[DeviceCard]] = {}
+        for card in cards:
+            groups.setdefault(self._room_key(card.device), []).append(card)
+
+        row = 0
+        for key, room_cards in sorted(groups.items(), key=self._room_sort_key):
+            room_cards.sort(key=lambda card: (not card.device.favorite, card.device.name))
+            header = self._room_headers.get(key)
+            if header is None:
+                header = QLabel(self.scroll_content)
+                header.setObjectName("roomHeader")
+                self._room_headers[key] = header
+            header.setText(self._room_title(room_cards[0].device))
+            header.show()
+            self.grid.addWidget(header, row, 0, 1, columns)
+            row += 1
+            for index, card in enumerate(room_cards):
+                self.grid.addWidget(card, row + index // columns, index % columns)
+            row += (len(room_cards) + columns - 1) // columns
         for column in range(columns):
             self.grid.setColumnStretch(column, 1)
+
+    @staticmethod
+    def _room_key(device: BaseDevice) -> tuple[str, str]:
+        home = device.home_id or device.home_name or "__unknown_home__"
+        room = device.room_id or "__unassigned_room__"
+        return home, room
+
+    @staticmethod
+    def _room_title(device: BaseDevice) -> str:
+        home = device.home_name or "未知家庭"
+        room = device.room_name or "未分配房间"
+        return f"{home} · {room}"
+
+    def _room_sort_key(
+        self,
+        item: tuple[tuple[str, str], list[DeviceCard]],
+    ) -> tuple[str, bool, str]:
+        device = item[1][0].device
+        return (
+            device.home_name.casefold(),
+            not bool(device.room_id),
+            device.room_name.casefold(),
+        )

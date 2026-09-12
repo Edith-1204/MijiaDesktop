@@ -31,6 +31,10 @@ class BaseDevice:
     did: str
     name: str
     model: str
+    home_id: str = ""
+    home_name: str = ""
+    room_id: str = ""
+    room_name: str = ""
     device_type: DeviceType = DeviceType.OTHER
     online: bool = False
     favorite: bool = False

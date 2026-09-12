@@ -8,7 +8,7 @@ from app.ui.pages.devices_page import DevicesPage
 
 class FavoritesPage(DevicesPage):
     def __init__(self, parent=None) -> None:
-        super().__init__(parent)
+        super().__init__(parent, group_by_room=False)
         self.title_label.setText("收藏设备")
         self.search_input.setPlaceholderText("搜索收藏设备")
 

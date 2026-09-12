@@ -11,11 +11,24 @@ from app.ui.pages.devices_page import DevicesPage
 from app.ui.widgets.device_card import DeviceCard
 
 
-def make_device(did="light-1", name="书房灯", state=False):
+def make_device(
+    did="light-1",
+    name="书房灯",
+    state=False,
+    *,
+    home_id="home-1",
+    home_name="我的家",
+    room_id="room-1",
+    room_name="书房",
+):
     return BaseDevice(
         did=did,
         name=name,
         model="test.light.v1",
+        home_id=home_id,
+        home_name=home_name,
+        room_id=room_id,
+        room_name=room_name,
         device_type=DeviceType.LIGHT,
         online=True,
         primary_state=state,
@@ -63,6 +76,59 @@ def test_devices_page_filters_name_and_model(qtbot):
     page.search_input.setText("书房")
     assert not page.cards["light-1"].isHidden()
     assert page.cards["light-2"].isHidden()
+
+
+def test_devices_page_groups_rooms_and_hides_empty_groups_when_searching(qtbot):
+    page = DevicesPage()
+    qtbot.addWidget(page)
+    page.set_devices(
+        (
+            make_device("light-1", "书房灯"),
+            make_device(
+                "light-2",
+                "卧室灯",
+                room_id="room-2",
+                room_name="卧室",
+            ),
+            make_device(
+                "light-3",
+                "移动设备",
+                room_id="",
+                room_name="",
+            ),
+            make_device(
+                "light-4",
+                "另一家庭书房灯",
+                home_id="home-2",
+                home_name="另一家庭",
+                room_id="room-1",
+                room_name="书房",
+            ),
+        )
+    )
+
+    assert {
+        header.text()
+        for header in page.room_headers.values()
+        if not header.isHidden()
+    } == {
+        "我的家 · 书房",
+        "我的家 · 卧室",
+        "我的家 · 未分配房间",
+        "另一家庭 · 书房",
+    }
+
+    page.search_input.setText("卧室")
+
+    assert not page.cards["light-2"].isHidden()
+    assert page.cards["light-1"].isHidden()
+    assert page.cards["light-3"].isHidden()
+    assert page.cards["light-4"].isHidden()
+    assert [
+        header.text()
+        for header in page.room_headers.values()
+        if not header.isHidden()
+    ] == ["我的家 · 卧室"]
 
 
 def test_devices_page_reuses_parented_cards_during_favorite_updates(qtbot):
@@ -198,6 +264,7 @@ def test_favorites_page_filters_devices_and_main_window_updates_it(qtbot):
     favorite.favorite = True
     page.set_devices((favorite, make_device("light-2", "普通灯")))
     assert set(page.cards) == {"light-1"}
+    assert page.room_headers == {}
 
     manager = FakeManager()
     window = MainWindow(manager, auto_refresh=True)

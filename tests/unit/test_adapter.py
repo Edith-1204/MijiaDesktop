@@ -25,8 +25,20 @@ class FakeAPI:
         self.calls.append(("complete_qr_login", login_data))
         return {"serviceToken": "must-not-leak"}
 
-    def get_devices_list(self):
-        self.calls.append(("get_devices_list",))
+    def get_homes_list(self):
+        self.calls.append(("get_homes_list",))
+        return [
+            {
+                "id": "home-1",
+                "name": "我的家",
+                "roomlist": [
+                    {"id": "room-1", "name": "书房", "dids": ["device-1"]}
+                ],
+            }
+        ]
+
+    def get_devices_list(self, home_id=None):
+        self.calls.append(("get_devices_list", home_id))
         return [{"did": "device-1", "name": "台灯", "model": "test.light.v1"}]
 
     def get_devices_prop(self, data):
@@ -80,7 +92,9 @@ def test_adapter_exposes_complete_poc_chain(tmp_path):
     assert seen_paths == [tmp_path / "mijia-login-qr.png"]
     assert seen_paths[0].read_bytes().endswith(b"qr-data")
     assert adapter.is_authenticated()
-    assert adapter.get_devices()[0]["model"] == "test.light.v1"
+    device = adapter.get_devices()[0]
+    assert device["model"] == "test.light.v1"
+    assert (device["home_name"], device["room_name"]) == ("我的家", "书房")
     assert adapter.get_properties({"did": "device-1", "siid": 2, "piid": 1})["value"] is False
     assert adapter.set_property("device-1", 2, 1, True)["code"] == 0
     assert adapter.run_action("device-1", 2, 1, [1])["code"] == 0
@@ -88,6 +102,7 @@ def test_adapter_exposes_complete_poc_chain(tmp_path):
     assert [call[0] for call in api.calls] == [
         "get_qr_login_data",
         "complete_qr_login",
+        "get_homes_list",
         "get_devices_list",
         "get_devices_prop",
         "set_devices_prop",
@@ -179,6 +194,20 @@ def test_adapter_loads_device_spec_through_boundary():
     result = adapter.get_device_spec("test.light.v1")
 
     assert result == {"model": "test.light.v1", "cache": "."}
+
+
+def test_adapter_keeps_devices_without_a_room_in_their_home():
+    api = FakeAPI()
+    api.get_homes_list = lambda: [
+        {"id": "home-1", "name": "我的家", "roomlist": []}
+    ]
+    adapter = MijiaAdapter(api_client=api)
+
+    device = adapter.get_devices()[0]
+
+    assert device["home_name"] == "我的家"
+    assert device["room_id"] == ""
+    assert device["room_name"] == ""
 
 
 def test_nonzero_property_result_becomes_application_error():

@@ -39,6 +39,10 @@ class FakeAdapter:
                 "did": "light-1",
                 "name": "书房灯",
                 "model": "test.light.v1",
+                "home_id": "home-1",
+                "home_name": "我的家",
+                "room_id": "room-1",
+                "room_name": "书房",
                 "isOnline": True,
                 "prop": {"on": False, "brightness": 50},
             }
@@ -77,6 +81,7 @@ def test_raw_device_is_converted_to_unified_model():
     device = devices[0]
 
     assert device.did == "light-1"
+    assert (device.home_name, device.room_name) == ("我的家", "书房")
     assert device.device_type is DeviceType.LIGHT
     assert device.online is True
     assert device.primary_state is False

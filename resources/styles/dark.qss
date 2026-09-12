@@ -1,6 +1,7 @@
 QMainWindow, QWidget#windowRoot, QStackedWidget#pageStack, QWidget#devicesPage, QWidget#favoritesPage, QWidget#settingsPage, QWidget#loginPage, QWidget#deviceDetailPage, QTabWidget#detailTabs, QScrollArea#deviceScroll, QScrollArea#detailScroll, QWidget#deviceViewport, QWidget#deviceCanvas, QWidget#detailViewport, QWidget#detailContent, QWidget#deviceInfo { background: #17191c; color: #e8eaed; }
 QFrame#sidebar { background: #202327; border-right-color: #353a40; }
 QLabel#brandTitle, QLabel#pageTitle, QLabel#deviceName, QLabel#sectionTitle, QLabel#controlTitle, QLabel#propertyName { color: #f1f3f4; }
+QLabel#roomHeader { color: #e1e5e9; border-bottom-color: #3a4047; }
 QLabel#brandSubtitle, QLabel#pageStatus, QLabel#deviceModel, QLabel#controlDescription, QLabel#propertyIdentifier { color: #aeb4bb; }
 QPushButton#navButton { background: #292d32; border-color: #3a4047; color: #e1e5e9; }
 QPushButton#navButton:hover { background: #343940; }

@@ -30,6 +30,8 @@ class DevicesPage(QWidget):
         super().__init__(parent)
         self.setObjectName("devicesPage")
         self._group_by_room = group_by_room
+        self._room_filter: tuple[str, str] | None = None
+        self._room_filter_title = ""
         self._devices: tuple[BaseDevice, ...] = ()
         self._cards: dict[str, DeviceCard] = {}
         self._room_headers: dict[tuple[str, str], QLabel] = {}
@@ -90,6 +92,20 @@ class DevicesPage(QWidget):
     def room_headers(self) -> dict[tuple[str, str], QLabel]:
         return dict(self._room_headers)
 
+    @property
+    def room_filter(self) -> tuple[str, str] | None:
+        return self._room_filter
+
+    def set_room_filter(
+        self,
+        room_filter: tuple[str, str] | None,
+        title: str = "",
+    ) -> None:
+        self._room_filter = room_filter
+        self._room_filter_title = title
+        self.title_label.setText(title or "我的设备")
+        self._apply_filter()
+
     def set_devices(self, devices: tuple[BaseDevice, ...]) -> None:
         self._devices = devices
         existing = self._cards
@@ -108,7 +124,7 @@ class DevicesPage(QWidget):
             card.hide()
             card.deleteLater()
         self._cards = updated
-        valid_room_keys = {self._room_key(device) for device in devices}
+        valid_room_keys = {self.room_key(device) for device in devices}
         for key in set(self._room_headers) - valid_room_keys:
             header = self._room_headers.pop(key)
             header.hide()
@@ -173,10 +189,17 @@ class DevicesPage(QWidget):
         visible_cards = []
         for device in self._devices:
             card = self._cards[device.did]
+            matches_room = (
+                self._room_filter is None
+                or self.room_key(device) == self._room_filter
+            )
             matches = (
-                not query
-                or query in device.name.casefold()
-                or query in device.model.casefold()
+                matches_room
+                and (
+                    not query
+                    or query in device.name.casefold()
+                    or query in device.model.casefold()
+                )
             )
             card.setVisible(matches)
             if matches:
@@ -207,7 +230,7 @@ class DevicesPage(QWidget):
 
         groups: dict[tuple[str, str], list[DeviceCard]] = {}
         for card in cards:
-            groups.setdefault(self._room_key(card.device), []).append(card)
+            groups.setdefault(self.room_key(card.device), []).append(card)
 
         row = 0
         for key, room_cards in sorted(groups.items(), key=self._room_sort_key):
@@ -217,7 +240,7 @@ class DevicesPage(QWidget):
                 header = QLabel(self.scroll_content)
                 header.setObjectName("roomHeader")
                 self._room_headers[key] = header
-            header.setText(self._room_title(room_cards[0].device))
+            header.setText(self.room_title(room_cards[0].device))
             header.show()
             self.grid.addWidget(header, row, 0, 1, columns)
             row += 1
@@ -228,13 +251,13 @@ class DevicesPage(QWidget):
             self.grid.setColumnStretch(column, 1)
 
     @staticmethod
-    def _room_key(device: BaseDevice) -> tuple[str, str]:
+    def room_key(device: BaseDevice) -> tuple[str, str]:
         home = device.home_id or device.home_name or "__unknown_home__"
         room = device.room_id or "__unassigned_room__"
         return home, room
 
     @staticmethod
-    def _room_title(device: BaseDevice) -> str:
+    def room_title(device: BaseDevice) -> str:
         home = device.home_name or "未知家庭"
         room = device.room_name or "未分配房间"
         return f"{home} · {room}"

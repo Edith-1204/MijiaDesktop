@@ -154,6 +154,35 @@ def test_main_window_contains_devices_navigation(qtbot):
     assert window.pages.currentWidget() is window.devices_page
 
 
+def test_main_window_lists_rooms_below_devices_and_filters_cards(qtbot):
+    window = MainWindow(auto_refresh=False)
+    qtbot.addWidget(window)
+    devices = (
+        make_device("light-1", "书房灯"),
+        make_device("light-2", "卧室灯", room_id="room-2", room_name="卧室"),
+    )
+
+    window._show_device_snapshot(devices)
+
+    assert [button.text() for button in window._room_buttons.values()] == [
+        "↳  书房",
+        "↳  卧室",
+    ]
+    room_button = window._room_buttons[("home-1", "room-1")]
+    room_button.click()
+    assert window.pages.currentWidget() is window.devices_page
+    assert room_button.isChecked()
+    assert not window.devices_button.isChecked()
+    assert not window.devices_page.cards["light-1"].isHidden()
+    assert window.devices_page.cards["light-2"].isHidden()
+    assert window.devices_page.title_label.text() == "我的家 · 书房"
+
+    window.devices_button.click()
+    assert window.devices_button.isChecked()
+    assert not window.devices_page.cards["light-1"].isHidden()
+    assert not window.devices_page.cards["light-2"].isHidden()
+
+
 class FakeManager:
     def __init__(self):
         self.device = make_device()

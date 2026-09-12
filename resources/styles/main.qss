@@ -5,6 +5,10 @@ QLabel#brandSubtitle, QLabel#pageStatus, QLabel#deviceModel { color: #747b84; }
 QPushButton#navButton { background: #f4f6f8; border: 1px solid #e0e5ea; border-radius: 8px; color: #343b43; padding: 11px 14px; text-align: left; font-weight: 600; }
 QPushButton#navButton:hover { background: #e9edf2; border-color: #cfd6dd; }
 QPushButton#navButton:checked { background: #dcecff; border-color: #9fc5f2; color: #145fa8; }
+QScrollArea#roomNavigation, QWidget#roomNavigationContent { background: transparent; border: none; }
+QPushButton#roomNavButton { background: transparent; border: none; border-radius: 7px; color: #626b75; padding: 8px 10px; text-align: left; }
+QPushButton#roomNavButton:hover { background: #edf1f5; color: #343b43; }
+QPushButton#roomNavButton:checked { background: #e7f1fc; color: #145fa8; font-weight: 600; }
 QLabel#pageTitle { color: #15171a; font-size: 25px; font-weight: 700; }
 QLabel#roomHeader { color: #3b4652; font-size: 16px; font-weight: 700; padding: 12px 4px 5px; border-bottom: 1px solid #d9dee4; }
 QLineEdit#deviceSearch { background: #ffffff; color: #202124; placeholder-text-color: #7a828b; border: 1px solid #d9dee4; border-radius: 9px; padding: 10px 13px; selection-background-color: #2f7edb; selection-color: #ffffff; }

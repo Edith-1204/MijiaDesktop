@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from PySide6.QtCore import QSize, QThreadPool, QTimer
+from PySide6.QtCore import QSize, Qt, QThreadPool, QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QPushButton,
+    QScrollArea,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -74,6 +75,8 @@ class MainWindow(QMainWindow):
         self._login_in_progress = False
         self._allow_exit = False
         self._return_page: QWidget | None = None
+        self._room_buttons: dict[tuple[str, str], QPushButton] = {}
+        self._selected_room_key: tuple[str, str] | None = None
         self.refresh_timer = QTimer(self)
         self.refresh_timer.setInterval(self.settings_manager.refresh_interval * 1_000)
         self.refresh_timer.timeout.connect(self.refresh_primary_states)
@@ -99,7 +102,7 @@ class MainWindow(QMainWindow):
 
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(190)
+        sidebar.setFixedWidth(220)
         sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.setContentsMargins(18, 22, 18, 22)
         sidebar_layout.setSpacing(8)
@@ -115,6 +118,26 @@ class MainWindow(QMainWindow):
         self.devices_button.setCheckable(True)
         self.devices_button.setChecked(True)
         sidebar_layout.addWidget(self.devices_button)
+
+        self.room_navigation = QScrollArea()
+        self.room_navigation.setObjectName("roomNavigation")
+        self.room_navigation.setWidgetResizable(True)
+        self.room_navigation.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.room_navigation.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.room_navigation.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.room_navigation_content = QWidget()
+        self.room_navigation_content.setObjectName("roomNavigationContent")
+        self.room_navigation_layout = QVBoxLayout(self.room_navigation_content)
+        self.room_navigation_layout.setContentsMargins(10, 0, 0, 0)
+        self.room_navigation_layout.setSpacing(4)
+        self.room_navigation.setWidget(self.room_navigation_content)
+        self.room_navigation.hide()
+        sidebar_layout.addWidget(self.room_navigation)
+
         self.favorites_button = QPushButton("★  收藏")
         self.favorites_button.setObjectName("navButton")
         self.favorites_button.setCheckable(True)
@@ -131,7 +154,7 @@ class MainWindow(QMainWindow):
 
         self.pages = QStackedWidget()
         self.pages.setObjectName("pageStack")
-        self.devices_page = DevicesPage()
+        self.devices_page = DevicesPage(group_by_room=False)
         self.favorites_page = FavoritesPage()
         self.device_detail_page = DeviceDetailPage()
         self.settings_page = SettingsPage(self.settings_manager)
@@ -229,6 +252,7 @@ class MainWindow(QMainWindow):
         self._devices_loaded = True
         self.devices_page.set_devices(devices)
         self.favorites_page.set_devices(devices)
+        self._update_room_navigation(devices)
         self._update_tray(devices)
 
     def _on_devices_synced(self, devices) -> None:
@@ -326,8 +350,19 @@ class MainWindow(QMainWindow):
         )
 
     def show_devices_page(self) -> None:
+        self._selected_room_key = None
+        self.devices_page.set_room_filter(None)
         self.pages.setCurrentWidget(self.devices_page)
         self._set_navigation(self.devices_button)
+
+    def show_room_page(self, room_key: tuple[str, str], title: str) -> None:
+        if room_key not in self._room_buttons:
+            self.show_devices_page()
+            return
+        self._selected_room_key = room_key
+        self.devices_page.set_room_filter(room_key, title)
+        self.pages.setCurrentWidget(self.devices_page)
+        self._set_navigation(self._room_buttons[room_key])
 
     def show_favorites_page(self) -> None:
         self.pages.setCurrentWidget(self.favorites_page)
@@ -342,14 +377,69 @@ class MainWindow(QMainWindow):
             self.devices_button,
             self.favorites_button,
             self.settings_button,
+            *self._room_buttons.values(),
         ):
             button.setChecked(button is selected)
 
     def show_return_page(self) -> None:
         if self._return_page is self.favorites_page:
             self.show_favorites_page()
+        elif self._selected_room_key in self._room_buttons:
+            button = self._room_buttons[self._selected_room_key]
+            self.show_room_page(self._selected_room_key, button.toolTip())
         else:
             self.show_devices_page()
+
+    def _update_room_navigation(self, devices) -> None:
+        rooms = {}
+        for device in devices:
+            rooms.setdefault(DevicesPage.room_key(device), device)
+
+        for button in self._room_buttons.values():
+            self.room_navigation_layout.removeWidget(button)
+            button.deleteLater()
+        self._room_buttons = {}
+
+        home_keys = {
+            device.home_id or device.home_name or "__unknown_home__"
+            for device in rooms.values()
+        }
+        multiple_homes = len(home_keys) > 1
+        ordered_rooms = sorted(
+            rooms.items(),
+            key=lambda item: (
+                item[1].home_name.casefold(),
+                not bool(item[1].room_id),
+                item[1].room_name.casefold(),
+            ),
+        )
+        for room_key, device in ordered_rooms:
+            full_title = DevicesPage.room_title(device)
+            room_name = device.room_name or "未分配房间"
+            label = full_title if multiple_homes else room_name
+            button = QPushButton(f"↳  {label}")
+            button.setObjectName("roomNavButton")
+            button.setCheckable(True)
+            button.setToolTip(full_title)
+            button.clicked.connect(
+                lambda _checked=False, key=room_key, title=full_title: (
+                    self.show_room_page(key, title)
+                )
+            )
+            self.room_navigation_layout.addWidget(button)
+            self._room_buttons[room_key] = button
+
+        room_count = len(self._room_buttons)
+        self.room_navigation.setVisible(room_count > 0)
+        if room_count:
+            self.room_navigation.setFixedHeight(min(room_count * 38, 240))
+
+        if self._selected_room_key not in self._room_buttons:
+            self._selected_room_key = None
+            self.devices_page.set_room_filter(None)
+        elif self.pages.currentWidget() is self.devices_page:
+            selected = self._room_buttons[self._selected_room_key]
+            self._set_navigation(selected)
 
     def open_device_detail(self, did: str) -> None:
         if self.device_manager is None:
@@ -434,6 +524,7 @@ class MainWindow(QMainWindow):
         self._devices_loaded = False
         self.devices_page.set_devices(())
         self.favorites_page.set_devices(())
+        self._update_room_navigation(())
         self.pages.setCurrentWidget(self.login_page)
         self._set_navigation(None)
         self.login_page.status_label.setText("账号已退出，可重新生成二维码登录")

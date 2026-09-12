@@ -41,7 +41,7 @@ executable = EXE(
     analysis.binaries,
     analysis.datas,
     [],
-    name="MijiaDesktop-1.1.0",
+    name="MijiaDesktop-1.1.1",
     icon=str(project_root / "resources" / "icons" / "mijia.ico"),
     debug=False,
     bootloader_ignore_signals=False,

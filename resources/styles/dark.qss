@@ -6,6 +6,9 @@ QLabel#brandSubtitle, QLabel#pageStatus, QLabel#deviceModel, QLabel#controlDescr
 QPushButton#navButton { background: #292d32; border-color: #3a4047; color: #e1e5e9; }
 QPushButton#navButton:hover { background: #343940; }
 QPushButton#navButton:checked { background: #173a5e; border-color: #2e6fae; color: #8fc5ff; }
+QPushButton#roomNavButton { background: transparent; color: #aeb4bb; }
+QPushButton#roomNavButton:hover { background: #2c3136; color: #e1e5e9; }
+QPushButton#roomNavButton:checked { background: #1e3852; color: #8fc5ff; }
 QLineEdit#deviceSearch, QComboBox, QComboBox#enumEditor, QSpinBox, QSpinBox#numberEditor, QDoubleSpinBox, QDoubleSpinBox#numberEditor { background: #25292e; color: #f1f3f4; border-color: #434a52; selection-background-color: #2877c7; }
 QComboBox QAbstractItemView { background: #25292e; color: #f1f3f4; border-color: #434a52; selection-background-color: #2877c7; selection-color: #ffffff; }
 QFrame#deviceCard, QFrame#propertyRow, QFrame#actionRow { background: #23272b; border-color: #3a4046; }

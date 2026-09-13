@@ -1,5 +1,11 @@
 from app import __version__
 from app.application import create_application, load_application_icon
+from app.main import (
+    HIDDEN_STARTUP_ARGUMENT,
+    _can_remain_hidden,
+    _hidden_start_requested,
+    _qt_arguments,
+)
 from app.ui.style import load_stylesheet
 from app.ui.main_window import MainWindow
 
@@ -60,3 +66,19 @@ def test_main_window_can_be_created(qapp):
     assert not window.windowIcon().isNull()
     assert window.minimumWidth() == 760
     assert window.minimumHeight() == 520
+
+
+def test_hidden_start_argument_is_removed_before_qt_parses_arguments():
+    arguments = ["MijiaDesktop.exe", HIDDEN_STARTUP_ARGUMENT]
+
+    assert _hidden_start_requested(arguments)
+    assert _qt_arguments(arguments) == ["MijiaDesktop.exe"]
+
+
+def test_hidden_start_requires_an_available_tray(qapp):
+    window = MainWindow(enable_tray=True)
+    window.tray_service.available = True
+    assert _can_remain_hidden(window)
+
+    window.tray_service.available = False
+    assert not _can_remain_hidden(window)

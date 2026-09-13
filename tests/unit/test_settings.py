@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 from PySide6.QtCore import QSettings
 
 from app.core.settings_manager import SettingsManager, ThemeMode
@@ -93,18 +95,57 @@ class FakeRegistry:
 
 def test_startup_service_round_trip():
     registry = FakeRegistry()
-    service = StartupService(registry=registry, command='"mijia-desktop.exe"')
+    service = StartupService(
+        registry=registry,
+        command='"mijia-desktop.exe" --hidden',
+        legacy_command='"mijia-desktop.exe"',
+    )
     assert not service.is_enabled()
     service.set_enabled(True)
     assert service.is_enabled()
     assert registry.values[
         r"Software\Microsoft\Windows\CurrentVersion\Run"
-    ]["Mijia Desktop"][0] == '"mijia-desktop.exe"'
+    ]["Mijia Desktop"][0] == '"mijia-desktop.exe" --hidden'
     assert registry.values[
         r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
     ]["Mijia Desktop"][0].startswith(b"\x02")
     service.set_enabled(False)
     assert not service.is_enabled()
+
+
+def test_startup_service_migrates_visible_legacy_command():
+    registry = FakeRegistry()
+    run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    registry.values[run_key] = {
+        "Mijia Desktop": ('"mijia-desktop.exe"', registry.REG_SZ)
+    }
+    service = StartupService(
+        registry=registry,
+        command='"mijia-desktop.exe" --hidden',
+        legacy_command='"mijia-desktop.exe"',
+    )
+
+    assert service.ensure_current_registration()
+    assert registry.values[run_key]["Mijia Desktop"][0].endswith("--hidden")
+
+
+def test_packaged_startup_migrates_an_older_version(monkeypatch):
+    registry = FakeRegistry()
+    run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    registry.values[run_key] = {
+        "Mijia Desktop": (
+            r'"C:\Apps\MijiaDesktop-1.1.1.exe"',
+            registry.REG_SZ,
+        )
+    }
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", r"C:\Apps\MijiaDesktop-1.2.0.exe")
+    service = StartupService(registry=registry)
+
+    assert service.ensure_current_registration()
+    registered = registry.values[run_key]["Mijia Desktop"][0]
+    assert "MijiaDesktop-1.2.0.exe" in registered
+    assert registered.endswith("--hidden")
 
 
 def test_settings_page_emits_selected_values(qtbot, tmp_path):

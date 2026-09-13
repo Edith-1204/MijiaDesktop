@@ -23,9 +23,26 @@ from app.storage.spec_cache import DeviceSpecCache
 from app.ui.main_window import MainWindow
 
 
+HIDDEN_STARTUP_ARGUMENT = "--hidden"
+
+
+def _hidden_start_requested(arguments: list[str]) -> bool:
+    return HIDDEN_STARTUP_ARGUMENT in arguments[1:]
+
+
+def _qt_arguments(arguments: list[str]) -> list[str]:
+    return [argument for argument in arguments if argument != HIDDEN_STARTUP_ARGUMENT]
+
+
+def _can_remain_hidden(window: MainWindow) -> bool:
+    return window.tray_service is not None and window.tray_service.available
+
+
 def main() -> int:
     """Start the Qt application and return its exit code."""
-    application = create_application(sys.argv)
+    arguments = list(sys.argv)
+    start_hidden = _hidden_start_requested(arguments)
+    application = create_application(_qt_arguments(arguments))
     settings = SettingsManager()
     theme_service = ThemeService(application)
     theme_service.apply(settings.theme)
@@ -33,7 +50,7 @@ def main() -> int:
         adapter = MijiaAdapter()
         repository = FavoritesRepository()
         startup_service = StartupService()
-        settings.startup_enabled = startup_service.is_enabled()
+        settings.startup_enabled = startup_service.ensure_current_registration()
         window = MainWindow(
             DeviceManager(
                 adapter,
@@ -56,7 +73,8 @@ def main() -> int:
             theme_service=theme_service,
         )
         window.devices_page.show_error(str(error))
-    window.show()
+    if not start_hidden or not _can_remain_hidden(window):
+        window.show()
     return application.exec()
 
 

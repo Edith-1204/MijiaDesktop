@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$version = "1.1.1"
+$version = "1.2.0"
 $executable = Join-Path $projectRoot "dist\MijiaDesktop-$version.exe"
 $releaseRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot "build\release"))
 $stageDirectory = [System.IO.Path]::GetFullPath(

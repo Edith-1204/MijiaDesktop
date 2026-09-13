@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
+from pathlib import Path
 
 from app.core.exceptions import StorageError
 
@@ -19,7 +21,12 @@ ENABLED_APPROVAL = b"\x02" + (b"\x00" * 11)
 
 
 class StartupService:
-    def __init__(self, registry=None, command: str | None = None) -> None:
+    def __init__(
+        self,
+        registry=None,
+        command: str | None = None,
+        legacy_command: str | None = None,
+    ) -> None:
         if registry is None:
             if os.name != "nt":
                 raise RuntimeError("Startup registration requires Windows")
@@ -27,7 +34,15 @@ class StartupService:
 
             registry = winreg
         self._registry = registry
-        self.command = command or self._default_command()
+        self._accept_versioned_executable = command is None and bool(
+            getattr(sys, "frozen", False)
+        )
+        if command is None:
+            self.command = self._default_command(hidden=True)
+            self.legacy_command = self._default_command(hidden=False)
+        else:
+            self.command = command
+            self.legacy_command = legacy_command or command
 
     def is_enabled(self) -> bool:
         try:
@@ -40,7 +55,7 @@ class StartupService:
                 for name in (VALUE_NAME, LEGACY_VALUE_NAME):
                     try:
                         value, _kind = self._registry.QueryValueEx(key, name)
-                        if value == self.command:
+                        if self._matches_registered_command(value):
                             return True
                     except FileNotFoundError:
                         continue
@@ -49,6 +64,14 @@ class StartupService:
             return False
         except OSError as error:
             raise StorageError("无法读取开机启动设置") from error
+
+    def ensure_current_registration(self) -> bool:
+        """Migrate an enabled legacy entry to the silent startup command."""
+        if not self.is_enabled():
+            return False
+        if not self._uses_current_command():
+            self.set_enabled(True)
+        return True
 
     def set_enabled(self, enabled: bool) -> None:
         try:
@@ -97,12 +120,50 @@ class StartupService:
         except OSError as error:
             raise StorageError("无法修改开机启动设置") from error
 
+    def _uses_current_command(self) -> bool:
+        try:
+            with self._registry.OpenKey(
+                self._registry.HKEY_CURRENT_USER,
+                RUN_KEY,
+                0,
+                self._registry.KEY_READ,
+            ) as key:
+                value, _kind = self._registry.QueryValueEx(key, VALUE_NAME)
+                return value == self.command
+        except FileNotFoundError:
+            return False
+        except OSError as error:
+            raise StorageError("无法读取开机启动设置") from error
+
+    def _matches_registered_command(self, value: object) -> bool:
+        if value in {self.command, self.legacy_command}:
+            return True
+        if not self._accept_versioned_executable or not isinstance(value, str):
+            return False
+        candidate = value.strip()
+        if candidate.casefold().endswith(" --hidden"):
+            candidate = candidate[: -len(" --hidden")].rstrip()
+        candidate = candidate.strip('"')
+        return bool(
+            re.fullmatch(
+                r"MijiaDesktop(?:-[0-9][0-9A-Za-z.-]*)?\.exe",
+                Path(candidate).name,
+                flags=re.IGNORECASE,
+            )
+        )
+
     @staticmethod
-    def _default_command() -> str:
+    def _default_command(*, hidden: bool) -> str:
         executable = sys.executable
         if getattr(sys, "frozen", False):
-            return subprocess.list2cmdline([executable])
+            arguments = [executable]
+            if hidden:
+                arguments.append("--hidden")
+            return subprocess.list2cmdline(arguments)
         pythonw = os.path.join(os.path.dirname(executable), "pythonw.exe")
         if os.path.isfile(pythonw):
             executable = pythonw
-        return subprocess.list2cmdline([executable, "-m", "app.main"])
+        arguments = [executable, "-m", "app.main"]
+        if hidden:
+            arguments.append("--hidden")
+        return subprocess.list2cmdline(arguments)

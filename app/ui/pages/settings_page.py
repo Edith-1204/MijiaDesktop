@@ -67,7 +67,7 @@ class SettingsPage(QWidget):
         )
         form.addRow("状态刷新周期", self.refresh_combo)
 
-        self.startup_checkbox = QCheckBox("开机自动运行")
+        self.startup_checkbox = QCheckBox("开机自动运行（静默驻留通知区域）")
         self.startup_checkbox.setChecked(settings.startup_enabled)
         self.startup_checkbox.toggled.connect(
             lambda enabled: self.startup_changed.emit(enabled)

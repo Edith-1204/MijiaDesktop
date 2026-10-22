@@ -8,6 +8,7 @@ from app.core.runtime import ensure_standard_streams
 
 ensure_standard_streams()
 
+from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QApplication
 
 from app.application import create_application
@@ -16,8 +17,9 @@ from app.core.device_manager import DeviceManager
 from app.core.exceptions import MijiaDesktopError
 from app.core.settings_manager import SettingsManager
 from app.mijia.adapter import MijiaAdapter
-from app.services.startup_service import StartupService
+from app.services.startup_service import create_startup_service
 from app.services.theme_service import ThemeService
+from app.services.macos_dock_service import set_dock_visible
 from app.storage.repository import FavoritesRepository
 from app.storage.spec_cache import DeviceSpecCache
 from app.ui.main_window import MainWindow
@@ -49,7 +51,7 @@ def main() -> int:
     try:
         adapter = MijiaAdapter()
         repository = FavoritesRepository()
-        startup_service = StartupService()
+        startup_service = create_startup_service()
         settings.startup_enabled = startup_service.ensure_current_registration()
         window = MainWindow(
             DeviceManager(
@@ -73,8 +75,19 @@ def main() -> int:
             theme_service=theme_service,
         )
         window.devices_page.show_error(str(error))
+    if sys.platform == "darwin":
+        menu = window.menuBar().addMenu("Mijia Desktop")
+        show_action = menu.addAction("打开主界面")
+        show_action.triggered.connect(window.restore_from_tray)
+        quit_action = QAction("退出 Mijia Desktop", window)
+        quit_action.setMenuRole(QAction.MenuRole.QuitRole)
+        quit_action.setShortcut(QKeySequence.StandardKey.Quit)
+        quit_action.triggered.connect(window.quit_application)
+        menu.addAction(quit_action)
     if not start_hidden or not _can_remain_hidden(window):
         window.show()
+    else:
+        set_dock_visible(False)
     return application.exec()
 
 

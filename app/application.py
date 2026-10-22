@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+import sys
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
@@ -13,8 +14,9 @@ from app.utils.logger import configure_logging
 
 
 def load_application_icon() -> QIcon:
-    """Load the shared icon used by windows, the taskbar, and the tray."""
-    icon_path = Path(__file__).resolve().parents[1] / "resources" / "icons" / "mijia.ico"
+    """Use the macOS rounded tile for the app and Dock; preserve the Windows icon."""
+    name = "mijia-macos.png" if sys.platform == "darwin" else "mijia.ico"
+    icon_path = Path(__file__).resolve().parents[1] / "resources" / "icons" / name
     return QIcon(str(icon_path))
 
 

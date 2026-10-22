@@ -1,6 +1,9 @@
-"""Windows system-tray integration."""
+"""System tray and macOS menu bar integration."""
 
 from __future__ import annotations
+
+import sys
+from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QAction, QIcon
@@ -19,7 +22,14 @@ class TrayService(QObject):
         super().__init__(window)
         self.window = window
         self.available = QSystemTrayIcon.isSystemTrayAvailable()
-        icon = window.windowIcon()
+        if sys.platform == "darwin":
+            icon_path = (
+                Path(__file__).resolve().parents[2] / "resources" / "icons" / "mijia-menubar.svg"
+            )
+            icon = QIcon(str(icon_path))
+            icon.setIsMask(True)
+        else:
+            icon = window.windowIcon()
         if icon.isNull():
             icon = window.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
         self.icon: QIcon = icon
@@ -73,12 +83,16 @@ class TrayService(QObject):
         if self.available:
             self.tray.showMessage(
                 "Mijia Desktop",
-                "应用仍在后台运行，可从通知区域重新打开。",
+                "应用仍在后台运行，可从系统托盘或菜单栏重新打开。",
                 self.icon,
                 2500,
             )
 
     def _on_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
+        # macOS already opens the attached menu on a status-item click.
+        # Showing the window here also restores the Dock icon unintentionally.
+        if sys.platform == "darwin":
+            return
         if reason in {
             QSystemTrayIcon.ActivationReason.Trigger,
             QSystemTrayIcon.ActivationReason.DoubleClick,

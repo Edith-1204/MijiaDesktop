@@ -6,7 +6,7 @@ import os
 import re
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import PureWindowsPath
 
 from app.core.exceptions import StorageError
 
@@ -18,6 +18,14 @@ APPROVED_RUN_KEY = (
 VALUE_NAME = "Mijia Desktop"
 LEGACY_VALUE_NAME = "MijiaDesktop"
 ENABLED_APPROVAL = b"\x02" + (b"\x00" * 11)
+
+
+def create_startup_service():
+    if sys.platform == "darwin":
+        from app.services.macos_startup_service import MacOSStartupService
+
+        return MacOSStartupService()
+    return StartupService()
 
 
 class StartupService:
@@ -147,7 +155,7 @@ class StartupService:
         return bool(
             re.fullmatch(
                 r"MijiaDesktop(?:-[0-9][0-9A-Za-z.-]*)?\.exe",
-                Path(candidate).name,
+                PureWindowsPath(candidate).name,
                 flags=re.IGNORECASE,
             )
         )

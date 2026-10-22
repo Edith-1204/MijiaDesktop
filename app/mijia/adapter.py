@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import traceback
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -16,12 +17,42 @@ from app.core.exceptions import (
     PropertyWriteError,
     UnsupportedDeviceError,
 )
-from app.mijia.auth import WindowsCredentialStore
+from app.mijia.auth import MacOSCredentialStore, WindowsCredentialStore, create_credential_store
 from app.utils.logger import get_logger
 
 
 logger = get_logger(__name__)
 OFFLINE_CODES = {-10007, -704042011, -704053036, -704083036}
+
+
+def _safe_error_chain(error: BaseException) -> str:
+    """Report transport causes without URLs, cookies, tickets or response bodies."""
+    pending = [error]
+    seen: set[int] = set()
+    labels = []
+    while pending and len(seen) < 12:
+        current = pending.pop(0)
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        label = type(current).__name__
+        code = getattr(current, "errno", None)
+        if isinstance(code, int):
+            label += f"(errno={code})"
+        frames = traceback.extract_tb(current.__traceback__)
+        if frames:
+            label += "[" + ",".join(
+                f"{Path(frame.filename).name}:{frame.name}:{frame.lineno}"
+                for frame in frames[-4:]
+            ) + "]"
+        labels.append(label)
+        for cause in (
+            current.__cause__, current.__context__, getattr(current, "reason", None),
+            *current.args,
+        ):
+            if isinstance(cause, BaseException):
+                pending.append(cause)
+    return " -> ".join(labels)
 
 
 class MijiaAPIClient(Protocol):
@@ -80,7 +111,7 @@ class MijiaAdapter:
         self,
         api_client: MijiaAPIClient | None = None,
         *,
-        credential_store: WindowsCredentialStore | None = None,
+        credential_store: WindowsCredentialStore | MacOSCredentialStore | None = None,
         api_factory: Callable[[Path], MijiaAPIClient] = _default_api_factory,
         spec_loader: Callable[[str, Path], dict[str, Any]] = _default_spec_loader,
         qr_fetcher: Callable[[str], bytes] = _default_qr_fetcher,
@@ -93,7 +124,7 @@ class MijiaAdapter:
         self._pending_login_data: dict[str, Any] | None = None
         self._qr_path: Path | None = None
         if api_client is None:
-            self._credential_store = credential_store or WindowsCredentialStore()
+            self._credential_store = credential_store or create_credential_store()
             auth_path = self._credential_store.prepare()
             self._api_factory = api_factory
             self._api = api_factory(auth_path)
@@ -131,7 +162,10 @@ class MijiaAdapter:
             return qr_path
         except Exception as error:
             error_type = type(error).__name__
-            logger.warning("QR login preparation failed: error_type=%s", error_type)
+            logger.warning(
+                "QR login preparation failed: error_type=%s causes=%s",
+                error_type, _safe_error_chain(error),
+            )
             raise self._translate_login_error(error) from None
 
     def complete_login(self) -> None:

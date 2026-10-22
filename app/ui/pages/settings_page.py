@@ -47,7 +47,7 @@ class SettingsPage(QWidget):
         form.setSpacing(14)
 
         self.theme_combo = QComboBox()
-        self.theme_combo.addItem("跟随 Windows", ThemeMode.SYSTEM.value)
+        self.theme_combo.addItem("跟随系统", ThemeMode.SYSTEM.value)
         self.theme_combo.addItem("浅色", ThemeMode.LIGHT.value)
         self.theme_combo.addItem("深色", ThemeMode.DARK.value)
         self.theme_combo.setCurrentIndex(self.theme_combo.findData(settings.theme.value))
@@ -67,7 +67,7 @@ class SettingsPage(QWidget):
         )
         form.addRow("状态刷新周期", self.refresh_combo)
 
-        self.startup_checkbox = QCheckBox("开机自动运行（静默驻留通知区域）")
+        self.startup_checkbox = QCheckBox("开机自动运行（后台驻留）")
         self.startup_checkbox.setChecked(settings.startup_enabled)
         self.startup_checkbox.toggled.connect(
             lambda enabled: self.startup_changed.emit(enabled)

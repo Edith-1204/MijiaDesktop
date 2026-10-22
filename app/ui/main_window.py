@@ -27,6 +27,8 @@ from app.core.device_manager import DeviceManager
 from app.core.settings_manager import SettingsManager, ThemeMode
 from app.core.state_manager import StateManager
 from app.services.startup_service import StartupService
+from app.services.macos_startup_service import MacOSStartupService
+from app.services.macos_dock_service import set_dock_visible
 from app.services.theme_service import ThemeService
 from app.services.tray_service import TrayService
 from app.ui.pages.device_detail_page import DeviceDetailPage
@@ -51,12 +53,13 @@ class MainWindow(QMainWindow):
         state_manager: StateManager | None = None,
         settings_manager: SettingsManager | None = None,
         theme_service: ThemeService | None = None,
-        startup_service: StartupService | None = None,
+        startup_service: StartupService | MacOSStartupService | None = None,
         account_manager: AccountManager | None = None,
         auto_refresh: bool = True,
         enable_tray: bool = False,
     ) -> None:
         super().__init__()
+        self.closed_to_tray = False
         self.device_manager = device_manager
         self.state_manager = state_manager or (
             StateManager(device_manager) if device_manager is not None else None
@@ -482,7 +485,7 @@ class MainWindow(QMainWindow):
         try:
             self.startup_service.set_enabled(enabled)
             if self.startup_service.is_enabled() is not enabled:
-                raise RuntimeError("Windows 未确认启动项写入")
+                raise RuntimeError("系统未确认启动项写入")
             self.settings_manager.startup_enabled = enabled
             self.settings_page.show_status("开机启动设置已保存")
         except Exception as error:
@@ -678,10 +681,21 @@ class MainWindow(QMainWindow):
             self.tray_service.update_devices(tuple(devices))
 
     def restore_from_tray(self) -> None:
+        self.closed_to_tray = False
         self.show()
         self.showNormal()
         self.raise_()
         self.activateWindow()
+
+    def showEvent(self, event) -> None:
+        set_dock_visible(True)
+        super().showEvent(event)
+
+    def hideEvent(self, event) -> None:
+        super().hideEvent(event)
+        tray = getattr(self, "tray_service", None)
+        if tray is not None and tray.available:
+            set_dock_visible(False)
 
     def quit_application(self) -> None:
         self._allow_exit = True
@@ -695,6 +709,7 @@ class MainWindow(QMainWindow):
             and self.tray_service.available
         ):
             event.ignore()
+            self.closed_to_tray = True
             self.hide()
             self.tray_service.show_hidden_message()
             return

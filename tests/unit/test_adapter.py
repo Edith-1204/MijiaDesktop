@@ -185,6 +185,20 @@ def test_login_error_distinguishes_network_failures(tmp_path):
     assert "ticket" not in str(caught.value)
 
 
+def test_transport_diagnostics_redact_urls_and_credentials():
+    from app.mijia.adapter import _safe_error_chain
+
+    missing = FileNotFoundError(2, "private detail", "/private/secret-file")
+    error = ConnectionError("https://example.test/?ticket=secret")
+    error.__cause__ = missing
+    missing.__context__ = error  # Cyclic causes must also terminate safely.
+    summary = _safe_error_chain(error)
+    assert "ConnectionError" in summary
+    assert "FileNotFoundError(errno=2)" in summary
+    for private in ("ticket", "secret", "private detail", "https://"):
+        assert private not in summary
+
+
 def test_adapter_loads_device_spec_through_boundary():
     adapter = MijiaAdapter(
         api_client=FakeAPI(),

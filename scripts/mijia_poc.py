@@ -63,7 +63,7 @@ def _add_property_identity(parser: argparse.ArgumentParser) -> None:
 def run(arguments: argparse.Namespace, adapter: MijiaAdapter) -> int:
     if arguments.command == "login":
         adapter.login(lambda path: print(f"QR_CODE_PATH={path.resolve()}", flush=True))
-        print("登录成功，认证数据已由 Windows DPAPI 加密保存。")
+        print("登录成功，认证数据已由系统凭据存储安全保存。")
     elif arguments.command == "status":
         print("已登录" if adapter.is_authenticated() else "未登录或登录已失效")
     elif arguments.command == "list":

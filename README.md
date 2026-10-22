@@ -1,6 +1,6 @@
 # Mijia Desktop
 
-Mijia Desktop（米家桌面控制中心）是面向 Windows 11 的米家设备控制应用。
+Mijia Desktop（米家桌面控制中心）是面向 Windows 11 和 macOS 的米家设备控制应用。macOS 版本目前为移植测试版。
 
 > 本项目仅供作者本人个人使用，并非小米或米家官方产品，不提供面向公众的兼容性、
 > 可用性或技术支持承诺。
@@ -21,17 +21,42 @@ Mijia Desktop（米家桌面控制中心）是面向 Windows 11 的米家设备�
 
 ### 系统要求
 
-- Windows 11 64 位；
+- Windows 11 64 位，或 macOS 14 及以上（本地移植测试环境为 Apple Silicon）；
 - 可正常访问小米云服务；
 - 手机已安装米家 App，并可登录需要控制的账号。
 
 ### 下载与启动
 
-1. 前往 [Releases](https://github.com/Edith-1204/MijiaDesktop/releases) 下载最新版本；
-2. 可直接下载单文件 EXE，或下载并解压 `win-x64.zip` 发布包；
-3. 双击 `MijiaDesktop-<版本号>.exe` 启动程序；
-4. 若 Windows SmartScreen 提示未知发布者，请确认文件来源和 SHA-256 校验值后再决定
-   是否运行。本程序目前没有商业代码签名。
+1. 前往 [Releases](https://github.com/Edith-1204/MijiaDesktop/releases) 选择需要的版本；
+2. macOS 用户下载 `MijiaDesktop-<版本号>-macos-arm64.zip`，解压后将 `.app` 移到“应用程序”；
+3. Windows 用户下载对应版本的 EXE 或 `win-x64.zip`；v1.3.0 提供 macOS 发布包，Windows
+   暂时继续使用已有版本或自行从源码构建；
+4. 应用尚未使用商业证书签名，macOS 包尚未经过 Apple 公证。
+
+### macOS 移植测试版
+
+本地打包后的程序位于 `dist/MijiaDesktop.app`，可通过 Finder 双击打开。建议先将
+`.app` 复制到“应用程序”目录，再启用登录启动。支持菜单栏快速控制、关闭窗口后后台
+驻留、从菜单栏重新打开窗口，以及 `⌘Q` 完全退出。关闭窗口进入后台后，
+应用会从程序坞移除，只保留菜单栏图标；重新打开主窗口时恢复程序坞图标。
+
+从源码运行（需要 Python 3.11–3.13）：
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[dev,packaging]'
+.venv/bin/python -m app.main
+```
+
+在 Mac 上打包当前架构的 `.app`：
+
+```bash
+bash scripts/build_macos.sh
+```
+
+也可直接执行 `.venv/bin/python -m PyInstaller --noconfirm --clean MijiaDesktop.spec`。
+本地包采用临时签名，尚未使用 Apple Developer ID 签名或公证；Intel Mac 需要在对应
+架构环境中另行构建验证。移植说明和验证范围见 [macOS 移植说明](docs/MACOS.md)。
 
 ### 登录米家
 
@@ -39,7 +64,9 @@ Mijia Desktop（米家桌面控制中心）是面向 Windows 11 的米家设备�
 2. 使用米家 App 扫描二维码并确认登录；
 3. 登录成功后，程序会自动同步当前账号下的设备。
 
-登录凭据使用 Windows DPAPI 加密，仅保存在当前 Windows 用户的数据目录中。发布包
+Windows 登录凭据使用 DPAPI 加密，仅保存在当前用户的数据目录中；macOS 登录凭据
+使用 AES-GCM 加密保存到当前用户的私有目录中，不使用钥匙串；加密密钥与认证文件
+均由当前用户的文件权限保护。发布包
 不包含作者的账号、设备或登录信息。退出账号会清除本机保存的登录凭据。
 
 ### 设备控制
@@ -54,7 +81,7 @@ Mijia Desktop（米家桌面控制中心）是面向 Windows 11 的米家设备�
 ### 设置与退出
 
 - 设置页可切换主题、调整自动刷新间隔、启用开机启动和高级模式；
-- 开机启动时程序默认静默驻留在 Windows 通知区域，不自动弹出主界面；
+- 开机启动时程序默认静默驻留在 Windows 通知区域或 macOS 菜单栏，不自动弹出主界面；
 - 可在设置页重新登录或退出当前米家账号；
 - 点击窗口关闭按钮后，程序会隐藏到系统托盘；
 - 如需完全退出，请使用托盘菜单中的“退出”。

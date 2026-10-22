@@ -31,3 +31,10 @@ qr.png
 data/
 logs/
 *.log
+
+# Local credential containers and transient login material
+auth.key
+credentials/
+mijia-login-qr.png
+.env
+.env.*

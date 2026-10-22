@@ -1,0 +1,49 @@
+name: Publish macOS release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'release: v')
+    runs-on: macos-14
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install build and test dependencies
+        run: python -m pip install '.[dev,packaging]'
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q
+      - name: Build application
+        run: |
+          python scripts/build_icons.py
+          python -m PyInstaller --noconfirm --clean MijiaDesktop.spec
+          codesign --verify --deep --strict dist/MijiaDesktop.app
+      - name: Audit and package release
+        run: python scripts/package_macos_release.py
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(python -c 'from app import __version__; print(__version__)')
+          gh release create "v$VERSION" \
+            "dist/MijiaDesktop-$VERSION-macos-arm64.zip" \
+            "dist/MijiaDesktop-$VERSION-macos-arm64.zip.sha256" \
+            --target "$GITHUB_SHA" \
+            --title "Mijia Desktop v$VERSION — macOS" \
+            --notes-file RELEASE_NOTES.md

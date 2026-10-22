@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="120 118 272 288">
+  <!-- White glyph only. Green background and surrounding pixels are transparent. -->
+  <g fill="#fff">
+    <path d="M135.5 125.5H180.5L256 157L331 125.5H376.5V193L331 212V175L256 207L180.5 175V276L135.5 295Z"/>
+    <path d="M331 245L376.5 225.5V282C376.5 348 327 396.5 263 396.5C208 396.5 166 368 145 324L186.5 306C201 336 227 352 263 352C302 352 331 322 331 282Z"/>
+  </g>
+</svg>
